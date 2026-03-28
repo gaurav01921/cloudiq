@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Accept Invite | Cloud Cost Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="page-shell auth-shell">
+    <section class="panel auth-panel">
+      <p class="eyebrow">Team Invite</p>
+      <h1>Accept your access invite</h1>
+      <p class="status-copy">Set a password to activate your dashboard account.</p>
+      <form id="acceptInviteForm" class="auth-form">
+        <label class="field">
+          <span>Full Name</span>
+          <input id="acceptName" autocomplete="name">
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input id="acceptPassword" type="password" required autocomplete="new-password">
+        </label>
+        <button class="button button-primary" type="submit">Accept Invite</button>
+      </form>
+      <div id="acceptStatus" class="auth-status">Waiting for invite token.</div>
+    </section>
+  </div>
+  <script src="/static/accept-invite.js"></script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cloud Cost Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Live FinOps Control Plane</p>
+        <h1>Cloud cost intelligence with anomaly radar and one-click remediation.</h1>
+        <p class="hero-text">
+          Monitor AWS and GCP usage, surface genuine spend anomalies, and execute safe optimization actions from a single dashboard.
+        </p>
+      </div>
+      <div class="hero-actions">
+        <div id="sessionInfo" class="caption">Loading session...</div>
+        <button id="syncButton" class="button button-primary">Run Live Sync</button>
+        <button id="refreshButton" class="button button-secondary">Refresh Dashboard</button>
+        <button id="logoutButton" class="button button-secondary">Logout</button>
+      </div>
+    </header>
+
+    <main class="dashboard-grid">
+      <section class="panel metrics-panel">
+        <div class="panel-heading">
+          <h2>Command Metrics</h2>
+          <span id="lastSync" class="caption">Waiting for sync data</span>
+        </div>
+        <div id="costSource" class="inline-status"></div>
+        <div class="metric-cards">
+          <article class="metric-card">
+            <span class="metric-label">Observed Cost</span>
+            <strong id="totalCost" class="metric-value">$0.00</strong>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Anomalies</span>
+            <strong id="anomalyCount" class="metric-value">0</strong>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Recommendations</span>
+            <strong id="recommendationCount" class="metric-value">0</strong>
+          </article>
+          <article class="metric-card metric-card-accent">
+            <span class="metric-label">Potential Savings</span>
+            <strong id="potentialSavings" class="metric-value">$0.00/mo</strong>
+          </article>
+        </div>
+        <div id="syncResult" class="inline-status"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <h2>Anomaly Detection Status</h2>
+          <span id="anomalyReadiness" class="caption">Waiting for detector state</span>
+        </div>
+        <p id="anomalyStatusMessage" class="status-copy">No anomaly status yet.</p>
+        <div class="graph-shell">
+          <div id="anomalyGraph" class="graph empty-graph"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <h2>Cost Anomalies</h2>
+          <span class="caption">Isolation Forest detections over recent spend patterns</span>
+        </div>
+        <div id="anomalies" class="stack-list empty-state">No anomalies yet.</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <h2>Optimization Queue</h2>
+          <span class="caption">Approve selectively or execute in dry-run mode</span>
+        </div>
+        <div id="recommendations" class="stack-list empty-state">No recommendations yet.</div>
+      </section>
+
+      <section class="panel activity-panel">
+        <div class="panel-heading">
+          <h2>Execution Console</h2>
+          <span class="caption">Latest action results</span>
+        </div>
+        <pre id="console" class="console">Dashboard ready.</pre>
+      </section>
+
+      <section class="panel activity-panel">
+        <div class="panel-heading">
+          <h2>User Access</h2>
+          <span id="userAdminHint" class="caption">Admin tools hidden</span>
+        </div>
+        <div id="userManagement" class="admin-grid empty-state">User management is available to admins only.</div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
