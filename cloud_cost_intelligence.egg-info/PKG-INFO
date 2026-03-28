@@ -1,0 +1,26 @@
+Metadata-Version: 2.4
+Name: cloud-cost-intelligence
+Version: 0.1.0
+Summary: Cloud cost intelligence platform with live AWS/GCP ingestion, anomaly detection, and automated optimizations.
+Requires-Python: >=3.11
+Requires-Dist: apscheduler>=3.10.4
+Requires-Dist: boto3>=1.34.0
+Requires-Dist: email-validator>=2.2.0
+Requires-Dist: fastapi>=0.110.0
+Requires-Dist: google-api-python-client>=2.137.0
+Requires-Dist: google-cloud-bigquery>=3.25.0
+Requires-Dist: google-cloud-monitoring>=2.22.0
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: itsdangerous>=2.2.0
+Requires-Dist: numpy>=1.26.4
+Requires-Dist: pandas>=2.2.2
+Requires-Dist: pydantic-settings>=2.3.4
+Requires-Dist: python-dateutil>=2.9.0.post0
+Requires-Dist: python-dotenv>=1.0.1
+Requires-Dist: python-multipart>=0.0.9
+Requires-Dist: scikit-learn>=1.5.1
+Requires-Dist: sqlalchemy>=2.0.31
+Requires-Dist: uvicorn>=0.30.1
+Provides-Extra: dev
+Requires-Dist: pytest>=8.2.2; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23.7; extra == "dev"

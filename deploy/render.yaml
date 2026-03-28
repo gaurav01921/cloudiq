@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: cloud-cost-intelligence-web
+    env: docker
+    plan: starter
+    healthCheckPath: /health
+    autoDeploy: true
+  - type: worker
+    name: cloud-cost-intelligence-batch
+    env: docker
+    plan: starter
+    autoDeploy: true
+  - type: worker
+    name: cloud-cost-intelligence-scheduler
+    env: docker
+    plan: starter
+    autoDeploy: true
