@@ -7,11 +7,13 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.core.config import get_settings
 from app.core.security import hash_password, verify_password
 from app.db.base import Base
-from app.models import AuditLog, CostRecord, Recommendation, ResourceSnapshot, User
+from app.models import AuditLog, CostRecord, JobRun, Recommendation, ResourceSnapshot, User
 from app.services.anomaly_detection import AnomalyDetectionService
 from app.services.audit import AuditService
 from app.services.auth import AuthService
+from app.services.demo_data import DemoDataService
 from app.services.invite import InviteService
+from app.services.job_monitor import JobMonitorService
 from app.services.optimization import OptimizationService
 from app.services.recommendations import RecommendationService
 from app.schemas.api import OptimizationRequest
@@ -280,3 +282,23 @@ def test_audit_log_records_action() -> None:
 
     assert entry.action == "ops.sync"
     assert db.query(AuditLog).count() == 1
+
+
+def test_demo_data_service_generates_records_and_snapshots() -> None:
+    service = DemoDataService(lookback_days=10)
+    records = service.generate_cost_records()
+    snapshots = service.generate_resource_snapshots()
+    assert len(records) >= 10
+    assert len(snapshots) >= 2
+    assert all(record["provider"] == "demo" for record in records)
+
+
+def test_job_monitor_records_lifecycle() -> None:
+    db = build_session()
+    monitor = JobMonitorService(db)
+    run = monitor.start("sync")
+    monitor.finish(run, "success", {"records": 10})
+    latest = monitor.latest()
+    assert len(latest) == 1
+    assert latest[0].status == "success"
+    assert latest[0].details_json == {"records": 10}

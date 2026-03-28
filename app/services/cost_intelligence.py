@@ -1,6 +1,7 @@
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.models import Anomaly, CostRecord, Recommendation, ResourceSnapshot
 from app.schemas.api import (
     AnomalyResponse,
@@ -13,19 +14,33 @@ from app.schemas.api import (
     SyncResponse,
 )
 from app.services.anomaly_detection import AnomalyDetectionService
+from app.services.alerts import AlertService
 from app.services.ingestion import IngestionService
 from app.services.optimization import OptimizationService
 from app.services.recommendations import RecommendationService
+from app.services.runtime_settings import RuntimeSettingsService
 
 
 class CostIntelligenceService:
     def __init__(self, db: Session) -> None:
         self.db = db
+        self.settings = get_settings()
+        self.runtime_settings = RuntimeSettingsService(db)
 
     def sync(self) -> SyncResponse:
         ingested_cost_records, ingested_resource_snapshots = IngestionService(self.db).ingest()
         anomalies_detected = AnomalyDetectionService(self.db).run()
         recommendations_generated = RecommendationService(self.db).generate()
+        if anomalies_detected and self.settings.alert_on_anomaly_detected:
+            AlertService().send(
+                "anomalies_detected",
+                "warning",
+                {
+                    "anomalies_detected": anomalies_detected,
+                    "recommendations_generated": recommendations_generated,
+                    "data_mode": self.runtime_settings.get_data_mode(),
+                },
+            )
         return SyncResponse(
             ingested_cost_records=ingested_cost_records,
             ingested_resource_snapshots=ingested_resource_snapshots,
@@ -103,6 +118,7 @@ class CostIntelligenceService:
         return DashboardSummaryResponse(
             total_cost=float(total_cost) if has_actual_cost else float(estimated_total),
             cost_source="actual_billing" if has_actual_cost else "estimated_pricing",
+            data_mode=self.runtime_settings.get_data_mode(),
             anomaly_count=int(anomaly_count),
             recommendation_count=int(recommendation_count),
             estimated_monthly_savings=float(estimated_monthly_savings),

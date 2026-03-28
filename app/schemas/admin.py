@@ -6,7 +6,7 @@ from pydantic import BaseModel, EmailStr
 class AuditLogResponse(BaseModel):
     id: int
     actor_user_id: int | None
-    actor_email: EmailStr | None
+    actor_email: str | None
     action: str
     target_type: str | None
     target_id: str | None
@@ -32,7 +32,7 @@ class InviteAcceptRequest(BaseModel):
 
 class InviteResponse(BaseModel):
     id: int
-    email: EmailStr
+    email: str
     full_name: str
     role: str
     status: str
@@ -41,4 +41,3 @@ class InviteResponse(BaseModel):
     expires_at: datetime
     redeemed_at: datetime | None
     invite_link: str
-

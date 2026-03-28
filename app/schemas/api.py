@@ -13,6 +13,7 @@ class SyncResponse(BaseModel):
 class DashboardSummaryResponse(BaseModel):
     total_cost: float
     cost_source: str
+    data_mode: str
     anomaly_count: int
     recommendation_count: int
     estimated_monthly_savings: float
@@ -76,3 +77,23 @@ class OptimizationExecutionResponse(BaseModel):
     recommendation_id: int
     executed: bool
     result: dict
+
+
+class JobRunResponse(BaseModel):
+    id: int
+    job_name: str
+    status: str
+    started_at: datetime
+    finished_at: datetime | None
+    details_json: dict | None
+
+    class Config:
+        from_attributes = True
+
+
+class DataModeResponse(BaseModel):
+    data_mode: str
+
+
+class DataModeUpdateRequest(BaseModel):
+    data_mode: str

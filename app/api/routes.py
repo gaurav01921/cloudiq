@@ -11,6 +11,9 @@ from app.schemas.api import (
     AnomalyResponse,
     AnomalyStatusResponse,
     DashboardSummaryResponse,
+    DataModeResponse,
+    DataModeUpdateRequest,
+    JobRunResponse,
     OptimizationExecutionResponse,
     OptimizationRequest,
     RecommendationResponse,
@@ -18,6 +21,8 @@ from app.schemas.api import (
 )
 from app.services.audit import AuditService
 from app.services.cost_intelligence import CostIntelligenceService
+from app.services.job_monitor import JobMonitorService
+from app.services.runtime_settings import RuntimeSettingsService
 
 router = APIRouter()
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
@@ -77,6 +82,31 @@ def get_summary(
     return service.get_dashboard_summary()
 
 
+@router.get("/data-mode", response_model=DataModeResponse)
+def get_data_mode(
+    _: User = Depends(current_user),
+    db: Session = Depends(get_db),
+) -> DataModeResponse:
+    return DataModeResponse(data_mode=RuntimeSettingsService(db).get_data_mode())
+
+
+@router.put("/data-mode", response_model=DataModeResponse)
+def update_data_mode(
+    payload: DataModeUpdateRequest,
+    user: User = Depends(require_operator),
+    db: Session = Depends(get_db),
+) -> DataModeResponse:
+    data_mode = RuntimeSettingsService(db).set_data_mode(payload.data_mode)
+    AuditService(db).record(
+        action="settings.data_mode.update",
+        actor=user,
+        target_type="system",
+        target_id="data_mode",
+        details={"data_mode": data_mode},
+    )
+    return DataModeResponse(data_mode=data_mode)
+
+
 @router.get("/recommendations", response_model=list[RecommendationResponse])
 def get_recommendations(
     _: User = Depends(current_user),
@@ -84,6 +114,14 @@ def get_recommendations(
 ) -> list[RecommendationResponse]:
     service = CostIntelligenceService(db)
     return service.list_recommendations()
+
+
+@router.get("/job-runs", response_model=list[JobRunResponse])
+def get_job_runs(
+    _: User = Depends(current_user),
+    db: Session = Depends(get_db),
+) -> list[JobRunResponse]:
+    return [JobRunResponse.model_validate(row) for row in JobMonitorService(db).latest()]
 
 
 @router.post("/optimize", response_model=list[OptimizationExecutionResponse])

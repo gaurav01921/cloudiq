@@ -5,7 +5,10 @@ from sqlalchemy.orm import Session
 from app.connectors.aws.client import AwsConnector
 from app.connectors.gcp.client import GcpConnector
 from app.core.config import get_settings
+from app.core.retry import retry_call
 from app.models import CostRecord, ResourceSnapshot
+from app.services.demo_data import DemoDataService
+from app.services.runtime_settings import RuntimeSettingsService
 
 
 class IngestionService:
@@ -16,23 +19,60 @@ class IngestionService:
     def ingest(self) -> tuple[int, int]:
         ingested_cost_records = 0
         ingested_resource_snapshots = 0
+        mode = RuntimeSettingsService(self.db).get_data_mode()
 
-        if self.settings.aws_enabled:
+        if mode in {"demo", "hybrid"}:
+            demo = DemoDataService(self.settings.ingestion_lookback_days)
+            ingested_cost_records += self._upsert_cost_records(demo.generate_cost_records())
+            ingested_resource_snapshots += self._replace_resource_snapshots("demo", demo.generate_resource_snapshots())
+
+        if mode in {"live", "hybrid"} and self.settings.aws_enabled:
             aws = AwsConnector()
             try:
                 ingested_cost_records += self._upsert_cost_records(
-                    aws.fetch_daily_costs(self.settings.ingestion_lookback_days)
+                    retry_call(
+                        lambda: aws.fetch_daily_costs(self.settings.ingestion_lookback_days),
+                        attempts=self.settings.retry_attempts,
+                        base_delay_seconds=self.settings.retry_base_delay_seconds,
+                        retryable_exceptions=(ClientError,),
+                    )
                 )
             except ClientError:
                 pass
-            ingested_resource_snapshots += self._replace_resource_snapshots("aws", aws.fetch_resource_snapshots())
+            ingested_resource_snapshots += self._replace_resource_snapshots(
+                "aws",
+                retry_call(
+                    aws.fetch_resource_snapshots,
+                    attempts=self.settings.retry_attempts,
+                    base_delay_seconds=self.settings.retry_base_delay_seconds,
+                    retryable_exceptions=(ClientError,),
+                ),
+            )
 
-        if self.settings.gcp_enabled and self.settings.gcp_project_id and self.settings.gcp_billing_export_table:
+        if (
+            mode in {"live", "hybrid"}
+            and self.settings.gcp_enabled
+            and self.settings.gcp_project_id
+            and self.settings.gcp_billing_export_table
+        ):
             gcp = GcpConnector()
             ingested_cost_records += self._upsert_cost_records(
-                gcp.fetch_daily_costs(self.settings.ingestion_lookback_days)
+                retry_call(
+                    lambda: gcp.fetch_daily_costs(self.settings.ingestion_lookback_days),
+                    attempts=self.settings.retry_attempts,
+                    base_delay_seconds=self.settings.retry_base_delay_seconds,
+                    retryable_exceptions=(Exception,),
+                )
             )
-            ingested_resource_snapshots += self._replace_resource_snapshots("gcp", gcp.fetch_resource_snapshots())
+            ingested_resource_snapshots += self._replace_resource_snapshots(
+                "gcp",
+                retry_call(
+                    gcp.fetch_resource_snapshots,
+                    attempts=self.settings.retry_attempts,
+                    base_delay_seconds=self.settings.retry_base_delay_seconds,
+                    retryable_exceptions=(Exception,),
+                ),
+            )
 
         self.db.commit()
         return ingested_cost_records, ingested_resource_snapshots

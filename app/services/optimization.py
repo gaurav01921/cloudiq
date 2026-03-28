@@ -114,6 +114,14 @@ class OptimizationService:
                         "reason": exc.response.get("Error", {}).get("Message", "AWS API call failed."),
                         "error_code": exc.response.get("Error", {}).get("Code"),
                     }
+            elif recommendation.provider == "demo":
+                result = {
+                    "simulated": True,
+                    "action": payload["action"],
+                    "resource_id": payload["resource_id"],
+                    "message": "Demo mode simulated this optimization successfully.",
+                }
+                executed = True
             elif recommendation.provider == "gcp" and gcp_connector:
                 if payload["action"] == "stop_instance" and payload.get("instance_name") and payload.get("zone"):
                     result = gcp_connector.stop_instance(

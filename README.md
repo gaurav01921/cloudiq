@@ -11,6 +11,8 @@ Cloud Cost Intelligence is a real cloud FinOps service scaffold that can ingest 
 - Exposes a FastAPI control plane for syncing, reviewing anomalies, and executing optimizations.
 - Serves a browser dashboard at `/` for metrics, anomalies, recommendations, and execution results.
 - Includes session-based login and role-based access control for dashboard/API access.
+- Supports `live`, `demo`, and `hybrid` data modes so you can show the product without cloud credentials.
+- Emits structured logs, stores audit history, tracks background job runs, and supports webhook alerting.
 - Schedules recurring ingestion and analysis with APScheduler.
 
 ## Architecture
@@ -20,7 +22,11 @@ Cloud Cost Intelligence is a real cloud FinOps service scaffold that can ingest 
 - `app/services/anomaly_detection.py`: ML-based anomaly detection pipeline.
 - `app/services/recommendations.py`: Optimization recommendation generation.
 - `app/services/optimization.py`: Safe execution layer for cloud API actions.
+- `app/services/demo_data.py`: Demo-mode seeded telemetry and recommendation data.
+- `app/services/job_monitor.py`: Background job run tracking.
+- `app/services/alerts.py`: Alert delivery.
 - `app/api/routes.py`: Control plane API.
+- `app/api/auth_routes.py`: Authentication, invites, and admin APIs.
 
 ## Local setup
 
@@ -32,7 +38,7 @@ python -m venv .venv
 pip install -e .[dev]
 ```
 
-2. Copy `.env.example` to `.env` and fill in your cloud settings.
+2. Copy `.env.example` to `.env` and fill in your environment settings.
 
 ```powershell
 Copy-Item .env.example .env
@@ -47,6 +53,50 @@ uvicorn app.main:app --reload
 ```
 
 4. Sign in at `/auth/login` with the bootstrap admin account from your `.env`.
+
+## Data modes
+
+- `DATA_MODE=live`: use real AWS/GCP data only
+- `DATA_MODE=demo`: use seeded demo data only
+- `DATA_MODE=hybrid`: combine demo and live data
+
+For a product demo with no cloud dependency, start from [.env.demo.example](C:\Users\userc\OneDrive\Documents\Playground\.env.demo.example).
+
+## CLI
+
+```powershell
+python -m app.cli runserver --host 127.0.0.1 --port 8000
+python -m app.cli sync
+```
+
+## Docker
+
+```powershell
+docker compose up --build
+```
+
+Files:
+
+- [Dockerfile](C:\Users\userc\OneDrive\Documents\Playground\Dockerfile)
+- [docker-compose.yml](C:\Users\userc\OneDrive\Documents\Playground\docker-compose.yml)
+
+## Environment templates
+
+- [C:\Users\userc\OneDrive\Documents\Playground\.env.development.example](C:\Users\userc\OneDrive\Documents\Playground\.env.development.example)
+- [C:\Users\userc\OneDrive\Documents\Playground\.env.demo.example](C:\Users\userc\OneDrive\Documents\Playground\.env.demo.example)
+- [C:\Users\userc\OneDrive\Documents\Playground\.env.production.example](C:\Users\userc\OneDrive\Documents\Playground\.env.production.example)
+
+## Observability
+
+- Structured JSON logs are enabled with `STRUCTURED_LOGS=true`
+- Background job history is available from `GET /job-runs`
+- Audit history is available from `GET /auth/audit-logs`
+- Alerting can be enabled with `ALERTING_ENABLED=true` and `ALERTING_WEBHOOK_URL`
+- Cloud/API ingestion retries are controlled by `RETRY_ATTEMPTS` and `RETRY_BASE_DELAY_SECONDS`
+
+## Cloud target
+
+A starter Render deployment target is included in [deploy/render.yaml](C:\Users\userc\OneDrive\Documents\Playground\deploy\render.yaml).
 
 Roles:
 
@@ -96,6 +146,7 @@ Roles:
 - `POST /auth/users`
 - `PATCH /auth/users/{user_id}`
 - `GET /summary`
+- `GET /job-runs`
 - `POST /sync`
 - `GET /anomalies`
 - `GET /recommendations`

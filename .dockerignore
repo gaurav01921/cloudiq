@@ -1,0 +1,6 @@
+.git
+.pytest_cache
+__pycache__
+*.pyc
+.env
+cloud_cost_intelligence.db

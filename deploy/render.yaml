@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: cloud-cost-intelligence
+    env: docker
+    plan: starter
+    healthCheckPath: /health
+    autoDeploy: true

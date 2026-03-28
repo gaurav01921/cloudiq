@@ -21,6 +21,17 @@
       </div>
       <div class="hero-actions">
         <div id="sessionInfo" class="caption">Loading session...</div>
+        <div class="mode-control">
+          <label class="field" for="dataModeSelect">
+            <span>Data Mode</span>
+            <select id="dataModeSelect">
+              <option value="live">live</option>
+              <option value="demo">demo</option>
+              <option value="hybrid">hybrid</option>
+            </select>
+          </label>
+          <div id="dataModeStatus" class="caption">Reading current mode...</div>
+        </div>
         <button id="syncButton" class="button button-primary">Run Live Sync</button>
         <button id="refreshButton" class="button button-secondary">Refresh Dashboard</button>
         <button id="logoutButton" class="button button-secondary">Logout</button>

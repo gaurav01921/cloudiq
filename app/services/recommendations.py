@@ -16,7 +16,7 @@ class RecommendationService:
         created = 0
         for snapshot in snapshots:
             metadata = snapshot.metadata_json or {}
-            if snapshot.provider == "aws" and snapshot.resource_type == "ec2_instance" and snapshot.is_idle:
+            if snapshot.provider in {"aws", "demo"} and snapshot.resource_type == "ec2_instance" and snapshot.is_idle:
                 savings = snapshot.monthly_cost_estimate or 10.0
                 if savings >= self.settings.optimization_min_monthly_savings:
                     self.db.add(
@@ -40,7 +40,7 @@ class RecommendationService:
                     )
                     created += 1
             if (
-                snapshot.provider == "aws"
+                snapshot.provider in {"aws", "demo"}
                 and snapshot.resource_type == "ec2_instance"
                 and snapshot.state == "running"
                 and snapshot.cpu_utilization_avg is not None
@@ -70,7 +70,7 @@ class RecommendationService:
                         )
                     )
                     created += 1
-            if snapshot.provider == "aws" and snapshot.resource_type == "ebs_volume" and snapshot.is_idle:
+            if snapshot.provider in {"aws", "demo"} and snapshot.resource_type == "ebs_volume" and snapshot.is_idle:
                 savings = snapshot.monthly_cost_estimate or 5.0
                 if savings >= self.settings.optimization_min_monthly_savings:
                     self.db.add(
@@ -94,7 +94,7 @@ class RecommendationService:
                         )
                     )
                     created += 1
-            if snapshot.provider == "aws" and snapshot.resource_type == "elastic_ip" and snapshot.is_idle:
+            if snapshot.provider in {"aws", "demo"} and snapshot.resource_type == "elastic_ip" and snapshot.is_idle:
                 savings = snapshot.monthly_cost_estimate or 3.6
                 if savings > 0:
                     self.db.add(

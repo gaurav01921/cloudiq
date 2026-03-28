@@ -18,10 +18,13 @@ class Settings(BaseSettings):
     app_name: str = Field(default="Cloud Cost Intelligence", alias="APP_NAME")
     environment: str = Field(default="development", alias="ENVIRONMENT")
     database_url: str = Field(default_factory=default_database_url, alias="DATABASE_URL")
+    data_mode: str = Field(default="live", alias="DATA_MODE")
+    default_currency: str = Field(default="USD", alias="DEFAULT_CURRENCY")
     session_secret_key: str = Field(default="change-me-session-secret", alias="SESSION_SECRET_KEY")
     bootstrap_admin_email: str = Field(default="admin@example.com", alias="BOOTSTRAP_ADMIN_EMAIL")
     bootstrap_admin_password: str = Field(default="ChangeMe123!", alias="BOOTSTRAP_ADMIN_PASSWORD")
     bootstrap_admin_name: str = Field(default="Platform Admin", alias="BOOTSTRAP_ADMIN_NAME")
+    app_base_url: str = Field(default="http://127.0.0.1:8000", alias="APP_BASE_URL")
 
     aws_enabled: bool = Field(default=True, alias="AWS_ENABLED")
     aws_region: str = Field(default="us-east-1", alias="AWS_REGION")
@@ -50,6 +53,13 @@ class Settings(BaseSettings):
         alias="OPTIMIZATION_PROTECTED_TAG_VALUES",
     )
     ingestion_lookback_days: int = Field(default=30, alias="INGESTION_LOOKBACK_DAYS")
+    retry_attempts: int = Field(default=3, alias="RETRY_ATTEMPTS")
+    retry_base_delay_seconds: float = Field(default=1.0, alias="RETRY_BASE_DELAY_SECONDS")
+    alerting_enabled: bool = Field(default=False, alias="ALERTING_ENABLED")
+    alerting_webhook_url: str | None = Field(default=None, alias="ALERTING_WEBHOOK_URL")
+    alert_on_job_failure: bool = Field(default=True, alias="ALERT_ON_JOB_FAILURE")
+    alert_on_anomaly_detected: bool = Field(default=False, alias="ALERT_ON_ANOMALY_DETECTED")
+    structured_logs: bool = Field(default=True, alias="STRUCTURED_LOGS")
 
     scheduler_enabled: bool = Field(default=True, alias="SCHEDULER_ENABLED")
     scheduler_cron_minute: int = Field(default=15, alias="SCHEDULER_CRON_MINUTE")
