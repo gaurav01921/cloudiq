@@ -1,10 +1,29 @@
 version: "3.9"
 
 services:
-  cloud-cost-intelligence:
+  control-plane-web:
     build: .
     ports:
       - "8000:8000"
     env_file:
       - .env
+    command: python -m app.cli runserver --host 0.0.0.0 --port 8000
+    environment:
+      SCHEDULER_ENABLED: "false"
+    restart: unless-stopped
+
+  ccm-batch-worker:
+    build: .
+    env_file:
+      - .env
+    command: python -m app.cli worker --interval 300
+    environment:
+      SCHEDULER_ENABLED: "false"
+    restart: unless-stopped
+
+  ccm-scheduler:
+    build: .
+    env_file:
+      - .env
+    command: python -m app.cli scheduler
     restart: unless-stopped

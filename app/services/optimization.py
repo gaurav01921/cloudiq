@@ -78,33 +78,57 @@ class OptimizationService:
 
             result: dict
             executed = False
+            is_real_execution = bool(request.force_execute)
 
             if recommendation.provider == "aws" and aws_connector:
                 try:
                     if payload["action"] == "stop_instance":
                         result = aws_connector.stop_instance(
                             instance_id=payload["resource_id"],
-                            dry_run=self.settings.optimization_dry_run and not request.force_execute,
+                            dry_run=not is_real_execution,
                         )
-                        executed = True
+                        executed = is_real_execution
                     elif payload["action"] == "delete_volume":
                         result = aws_connector.delete_volume(
                             volume_id=payload["resource_id"],
-                            dry_run=self.settings.optimization_dry_run and not request.force_execute,
+                            dry_run=not is_real_execution,
                         )
-                        executed = True
+                        executed = is_real_execution
                     elif payload["action"] == "release_address":
                         result = aws_connector.release_address(
                             allocation_id=payload["resource_id"],
-                            dry_run=self.settings.optimization_dry_run and not request.force_execute,
+                            dry_run=not is_real_execution,
                         )
-                        executed = True
-                    elif payload["action"] == "review_rightsize":
+                        executed = is_real_execution
+                    elif payload["action"] in {
+                        "review_rightsize",
+                        "review_native_recommendation",
+                        "review_stopped_instance",
+                        "review_snapshot_cleanup",
+                        "review_load_balancer",
+                        "review_nat_gateway",
+                        "review_rds_instance",
+                    }:
                         result = {
                             "skipped": True,
-                            "reason": "Rightsizing recommendations are advisory and require manual change planning.",
+                            "reason": "This recommendation is advisory and requires operator review before infrastructure changes.",
+                            "action": payload["action"],
                             "instance_type": payload.get("safety_context", {}).get("instance_type"),
                             "cpu_utilization_avg": payload.get("safety_context", {}).get("cpu_utilization_avg"),
+                            "recommendation_options": payload.get("recommendation_options"),
+                            "stopped_age_days": payload.get("stopped_age_days"),
+                            "snapshot_age_days": payload.get("snapshot_age_days"),
+                            "recent_request_count": payload.get("recent_request_count"),
+                            "recent_bytes_out": payload.get("recent_bytes_out"),
+                            "database_connections_avg": payload.get("database_connections_avg"),
+                        }
+                    elif payload["action"] in {"investigate_anomaly", "review_compute_anomaly", "review_storage_anomaly"}:
+                        result = {
+                            "skipped": True,
+                            "reason": "Anomaly-guided optimization is advisory and requires operator review.",
+                            "anomaly_scope_key": payload.get("anomaly_scope_key"),
+                            "suspected_overage": payload.get("suspected_overage"),
+                            "anomaly_score": payload.get("anomaly_score"),
                         }
                     else:
                         result = {"skipped": True, "reason": f"Unsupported AWS action {payload['action']}"}
@@ -115,27 +139,68 @@ class OptimizationService:
                         "error_code": exc.response.get("Error", {}).get("Code"),
                     }
             elif recommendation.provider == "demo":
-                result = {
-                    "simulated": True,
-                    "action": payload["action"],
-                    "resource_id": payload["resource_id"],
-                    "message": "Demo mode simulated this optimization successfully.",
-                }
-                executed = True
+                if payload["action"] in {
+                    "investigate_anomaly",
+                    "review_compute_anomaly",
+                    "review_storage_anomaly",
+                    "review_rightsize",
+                    "review_native_recommendation",
+                    "review_stopped_instance",
+                    "review_snapshot_cleanup",
+                    "review_load_balancer",
+                    "review_nat_gateway",
+                    "review_rds_instance",
+                }:
+                    if is_real_execution:
+                        result = {
+                            "simulated": True,
+                            "action": payload["action"],
+                            "resource_id": payload["resource_id"],
+                            "message": "Demo mode simulated an anomaly-driven optimization review.",
+                            "suspected_overage": payload.get("suspected_overage"),
+                        }
+                    else:
+                        result = {
+                            "simulated": True,
+                            "dry_run": True,
+                            "authorized": True,
+                            "action": payload["action"],
+                            "resource_id": payload["resource_id"],
+                            "message": "Demo mode validated the anomaly-driven optimization review.",
+                            "suspected_overage": payload.get("suspected_overage"),
+                        }
+                else:
+                    if is_real_execution:
+                        result = {
+                            "simulated": True,
+                            "action": payload["action"],
+                            "resource_id": payload["resource_id"],
+                            "message": "Demo mode simulated this optimization successfully.",
+                        }
+                    else:
+                        result = {
+                            "simulated": True,
+                            "dry_run": True,
+                            "authorized": True,
+                            "action": payload["action"],
+                            "resource_id": payload["resource_id"],
+                            "message": "Demo mode validated this optimization successfully.",
+                        }
+                executed = is_real_execution
             elif recommendation.provider == "gcp" and gcp_connector:
                 if payload["action"] == "stop_instance" and payload.get("instance_name") and payload.get("zone"):
                     result = gcp_connector.stop_instance(
                         instance_name=payload["instance_name"],
                         zone=payload["zone"],
-                        dry_run=self.settings.optimization_dry_run and not request.force_execute,
+                        dry_run=not is_real_execution,
                     )
-                    executed = True
+                    executed = is_real_execution
                 else:
                     result = {"skipped": True, "reason": "GCP instance name/zone missing for stop action."}
             else:
                 result = {"skipped": True, "reason": "Provider connector unavailable."}
 
-            recommendation.executed = executed
+            recommendation.executed = recommendation.executed or executed
             recommendation.execution_result = result
             responses.append(
                 OptimizationExecutionResponse(
@@ -155,6 +220,9 @@ class OptimizationService:
         request: OptimizationRequest,
         aws_identity: dict | None,
     ) -> dict | None:
+        if recommendation.provider == "demo":
+            return None
+
         if request.bypass_safety_checks:
             return None
 

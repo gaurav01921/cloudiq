@@ -10,103 +10,198 @@
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-  <div class="page-shell">
-    <header class="hero">
-      <div class="hero-copy">
-        <p class="eyebrow">Live FinOps Control Plane</p>
-        <h1>Cloud cost intelligence with anomaly radar and one-click remediation.</h1>
-        <p class="hero-text">
-          Monitor AWS and GCP usage, surface genuine spend anomalies, and execute safe optimization actions from a single dashboard.
-        </p>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand-block">
+        <div class="brand-mark">~</div>
+        <div>
+          <div class="brand-title">CloudCost IQ</div>
+          <div class="brand-subtitle">FinOps control plane</div>
+        </div>
       </div>
-      <div class="hero-actions">
-        <div id="sessionInfo" class="caption">Loading session...</div>
-        <div class="mode-control">
-          <label class="field" for="dataModeSelect">
-            <span>Data Mode</span>
-            <select id="dataModeSelect">
-              <option value="live">live</option>
-              <option value="demo">demo</option>
-              <option value="hybrid">hybrid</option>
-            </select>
-          </label>
-          <div id="dataModeStatus" class="caption">Reading current mode...</div>
-        </div>
-        <button id="syncButton" class="button button-primary">Run Live Sync</button>
-        <button id="refreshButton" class="button button-secondary">Refresh Dashboard</button>
-        <button id="logoutButton" class="button button-secondary">Logout</button>
+
+      <nav class="sidebar-nav">
+        <div class="nav-group-label">FinOps Control Plane</div>
+        <a class="nav-item nav-item-active" href="#dashboardSection" data-section="dashboardSection">Dashboard</a>
+        <a class="nav-item" href="#radarSection" data-section="radarSection">Anomaly Radar</a>
+        <a class="nav-item" href="#optimizationSection" data-section="optimizationSection">Optimization Hub</a>
+
+        <div class="nav-group-label">Governance</div>
+        <a class="nav-item" href="#governanceSection" data-section="governanceSection">Access &amp; RBAC</a>
+        <a class="nav-item" href="#settingsSection" data-section="dashboardSection">Settings</a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div id="sessionInfo" class="sidebar-user">Loading session...</div>
       </div>
-    </header>
+    </aside>
 
-    <main class="dashboard-grid">
-      <section class="panel metrics-panel">
-        <div class="panel-heading">
-          <h2>Command Metrics</h2>
-          <span id="lastSync" class="caption">Waiting for sync data</span>
+    <main class="main-shell">
+      <header class="topbar">
+        <div class="topbar-controls">
+          <div class="control-pill control-pill-environment">
+            <span class="status-dot"></span>
+            <span id="environmentLabel">Production (AWS/GCP)</span>
+          </div>
+          <div class="control-pill">
+            <span id="dateRangeLabel">Current billing window</span>
+          </div>
         </div>
-        <div id="costSource" class="inline-status"></div>
-        <div class="metric-cards">
-          <article class="metric-card">
-            <span class="metric-label">Observed Cost</span>
-            <strong id="totalCost" class="metric-value">$0.00</strong>
+      </header>
+
+      <section id="dashboardSection" class="dashboard-section">
+        <div class="hero-row">
+          <div class="hero-card">
+            <p class="eyebrow">Live FinOps control plane</p>
+            <h1>Cloud cost intelligence with anomaly radar and automated optimization.</h1>
+            <p class="hero-copy">
+              Monitor live AWS and GCP usage, detect real cost anomalies, and execute safe remediation actions from one operating surface.
+            </p>
+          </div>
+
+          <div id="settingsSection" class="hero-sidecard">
+            <div class="hero-sidecard-heading">
+              <span class="eyebrow">Platform session</span>
+              <span id="roleLabel" class="mini-caption">Loading role...</span>
+            </div>
+
+            <label class="field field-dark" for="dataModeSelect">
+              <span>Data Mode</span>
+              <select id="dataModeSelect">
+                <option value="live">live</option>
+                <option value="demo">demo</option>
+                <option value="hybrid">hybrid</option>
+              </select>
+            </label>
+
+            <div id="dataModeStatus" class="inline-status inline-status-dark">Reading current mode...</div>
+            <button id="syncButton" class="button button-primary button-block">Run Live Sync</button>
+            <button id="refreshButton" class="button button-secondary button-block">Refresh Dashboard</button>
+            <button id="logoutButton" class="button button-ghost button-block">Logout</button>
+          </div>
+        </div>
+
+        <section class="metric-strip">
+          <article class="kpi-card">
+            <div class="kpi-topline">
+              <span id="totalCostLabel" class="metric-label">MTD Spend</span>
+              <span id="costSourceBadge" class="chip chip-neutral">Stable</span>
+            </div>
+            <strong id="totalCost" class="kpi-value">$0.00</strong>
+            <p id="costSource" class="kpi-copy">Cost source: awaiting data</p>
           </article>
-          <article class="metric-card">
-            <span class="metric-label">Anomalies</span>
-            <strong id="anomalyCount" class="metric-value">0</strong>
+
+          <article class="kpi-card">
+            <div class="kpi-topline">
+              <span id="forecastCostLabel" class="metric-label">Forecasted EOM</span>
+              <span id="forecastCostBadge" class="chip chip-neutral">Projected</span>
+            </div>
+            <strong id="forecastCost" class="kpi-value">$0.00</strong>
+            <p id="lastSync" class="kpi-copy">Waiting for sync data</p>
           </article>
-          <article class="metric-card">
-            <span class="metric-label">Recommendations</span>
-            <strong id="recommendationCount" class="metric-value">0</strong>
+
+          <article class="kpi-card">
+            <div class="kpi-topline">
+              <span class="metric-label">Realized Savings</span>
+              <span class="chip chip-positive">Verified</span>
+            </div>
+            <strong id="potentialSavings" class="kpi-value kpi-value-positive">$0.00/mo</strong>
+            <p id="syncResult" class="kpi-copy">No execution activity yet.</p>
           </article>
-          <article class="metric-card metric-card-accent">
-            <span class="metric-label">Potential Savings</span>
-            <strong id="potentialSavings" class="metric-value">$0.00/mo</strong>
+
+          <article class="kpi-card">
+            <div class="kpi-topline">
+              <span class="metric-label">Active Anomalies</span>
+              <span id="anomalySeverityBadge" class="chip chip-danger">Critical</span>
+            </div>
+            <strong id="anomalyCount" class="kpi-value">0</strong>
+            <p id="anomalyStatusMessage" class="kpi-copy">No anomaly status yet.</p>
           </article>
-        </div>
-        <div id="syncResult" class="inline-status"></div>
+        </section>
       </section>
 
-      <section class="panel">
-        <div class="panel-heading">
-          <h2>Anomaly Detection Status</h2>
-          <span id="anomalyReadiness" class="caption">Waiting for detector state</span>
-        </div>
-        <p id="anomalyStatusMessage" class="status-copy">No anomaly status yet.</p>
-        <div class="graph-shell">
-          <div id="anomalyGraph" class="graph empty-graph"></div>
-        </div>
+      <section id="radarSection" class="dashboard-section">
+        <article class="surface-card chart-card">
+          <div class="surface-heading">
+            <div>
+              <h2>Cost Trend Analysis</h2>
+              <p id="anomalyReadiness" class="surface-copy">Waiting for detector state</p>
+            </div>
+            <div class="legend">
+              <span class="legend-item"><span class="legend-dot legend-dot-line"></span>Baseline</span>
+              <span class="legend-item"><span class="legend-dot legend-dot-alert"></span>Anomaly</span>
+            </div>
+          </div>
+
+          <div id="anomalyGraphMeta" class="graph-meta"></div>
+          <div class="chart-shell">
+            <div id="anomalyGraph" class="graph empty-graph"></div>
+          </div>
+          <div id="syncTimeline" class="sync-timeline empty-state">No recent sync markers yet.</div>
+        </article>
       </section>
 
-      <section class="panel">
-        <div class="panel-heading">
-          <h2>Cost Anomalies</h2>
-          <span class="caption">Isolation Forest detections over recent spend patterns</span>
-        </div>
-        <div id="anomalies" class="stack-list empty-state">No anomalies yet.</div>
+      <section class="content-split">
+        <article id="optimizationSection" class="surface-card stack-card">
+          <div class="surface-heading">
+            <div>
+              <h2>Actionable Insights</h2>
+              <p class="surface-copy">Approve recommendations, validate them in dry run, and execute via cloud APIs.</p>
+            </div>
+            <div class="surface-linkline">
+              <span id="recommendationCount" class="pill-counter">0</span>
+              <span class="surface-linkcopy">Optimization hub</span>
+            </div>
+          </div>
+          <div id="recommendations" class="stack-list empty-state">No optimization candidates yet.</div>
+        </article>
+
+        <article class="surface-card stack-card recent-card">
+          <div class="surface-heading">
+            <div>
+              <h2>Recent Activity</h2>
+              <p class="surface-copy">Latest syncs, access events, and optimization outcomes.</p>
+            </div>
+            <div class="surface-linkline">
+              <span class="surface-linkcopy">Audit stream</span>
+            </div>
+          </div>
+          <div id="recentActivity" class="activity-stream empty-state">Recent activity will appear here.</div>
+        </article>
       </section>
 
-      <section class="panel">
-        <div class="panel-heading">
-          <h2>Optimization Queue</h2>
-          <span class="caption">Approve selectively or execute in dry-run mode</span>
-        </div>
-        <div id="recommendations" class="stack-list empty-state">No recommendations yet.</div>
+      <section class="content-split">
+        <article class="surface-card stack-card">
+          <div class="surface-heading">
+            <div>
+              <h2>Cost Anomalies</h2>
+              <p class="surface-copy">Isolation Forest and hybrid heuristics over recent billing patterns.</p>
+            </div>
+          </div>
+          <div id="anomalies" class="stack-list empty-state">No anomalies detected in the current data window.</div>
+        </article>
+
+        <article class="surface-card stack-card console-card">
+          <div class="surface-heading">
+            <div>
+              <h2>Execution Console</h2>
+              <p class="surface-copy">Live operational feedback from sync, mode changes, and optimization runs.</p>
+            </div>
+          </div>
+          <pre id="console" class="console">Dashboard ready.</pre>
+        </article>
       </section>
 
-      <section class="panel activity-panel">
-        <div class="panel-heading">
-          <h2>Execution Console</h2>
-          <span class="caption">Latest action results</span>
-        </div>
-        <pre id="console" class="console">Dashboard ready.</pre>
-      </section>
-
-      <section class="panel activity-panel">
-        <div class="panel-heading">
-          <h2>User Access</h2>
-          <span id="userAdminHint" class="caption">Admin tools hidden</span>
-        </div>
-        <div id="userManagement" class="admin-grid empty-state">User management is available to admins only.</div>
+      <section id="governanceSection" class="dashboard-section">
+        <article class="surface-card stack-card">
+          <div class="surface-heading">
+            <div>
+              <h2>Access &amp; RBAC</h2>
+              <p id="userAdminHint" class="surface-copy">Admin tools hidden</p>
+            </div>
+          </div>
+          <div id="userManagement" class="admin-grid empty-state">User management is available to admins only.</div>
+        </article>
       </section>
     </main>
   </div>

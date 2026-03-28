@@ -1,5 +1,4 @@
 from botocore.exceptions import ClientError
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.connectors.aws.client import AwsConnector
@@ -20,16 +19,27 @@ class IngestionService:
         ingested_cost_records = 0
         ingested_resource_snapshots = 0
         mode = RuntimeSettingsService(self.db).get_data_mode()
+        active_providers = set[str]()
+
+        if mode == "demo":
+            active_providers = {"demo"}
+        elif mode == "live":
+            active_providers = {"aws", "gcp"}
+        elif mode == "hybrid":
+            active_providers = {"demo", "aws", "gcp"}
+
+        self._clear_inactive_provider_data(active_providers)
 
         if mode in {"demo", "hybrid"}:
             demo = DemoDataService(self.settings.ingestion_lookback_days)
-            ingested_cost_records += self._upsert_cost_records(demo.generate_cost_records())
+            ingested_cost_records += self._replace_cost_records("demo", demo.generate_cost_records())
             ingested_resource_snapshots += self._replace_resource_snapshots("demo", demo.generate_resource_snapshots())
 
         if mode in {"live", "hybrid"} and self.settings.aws_enabled:
             aws = AwsConnector()
             try:
-                ingested_cost_records += self._upsert_cost_records(
+                ingested_cost_records += self._replace_cost_records(
+                    "aws",
                     retry_call(
                         lambda: aws.fetch_daily_costs(self.settings.ingestion_lookback_days),
                         attempts=self.settings.retry_attempts,
@@ -56,7 +66,8 @@ class IngestionService:
             and self.settings.gcp_billing_export_table
         ):
             gcp = GcpConnector()
-            ingested_cost_records += self._upsert_cost_records(
+            ingested_cost_records += self._replace_cost_records(
+                "gcp",
                 retry_call(
                     lambda: gcp.fetch_daily_costs(self.settings.ingestion_lookback_days),
                     attempts=self.settings.retry_attempts,
@@ -77,25 +88,11 @@ class IngestionService:
         self.db.commit()
         return ingested_cost_records, ingested_resource_snapshots
 
-    def _upsert_cost_records(self, records: list[dict]) -> int:
+    def _replace_cost_records(self, provider: str, records: list[dict]) -> int:
+        self.db.query(CostRecord).filter(CostRecord.provider == provider).delete()
         count = 0
         for record in records:
-            existing = self.db.execute(
-                select(CostRecord).where(
-                    CostRecord.provider == record["provider"],
-                    CostRecord.service == record["service"],
-                    CostRecord.usage_date == record["usage_date"],
-                    CostRecord.resource_id == record["resource_id"],
-                )
-            ).scalar_one_or_none()
-            if existing:
-                existing.cost_amount = record["cost_amount"]
-                existing.currency = record["currency"]
-                existing.usage_quantity = record["usage_quantity"]
-                existing.usage_unit = record["usage_unit"]
-                existing.metadata_json = record["metadata_json"]
-            else:
-                self.db.add(CostRecord(**record))
+            self.db.add(CostRecord(**record))
             count += 1
         return count
 
@@ -104,3 +101,15 @@ class IngestionService:
         for snapshot in snapshots:
             self.db.add(ResourceSnapshot(**snapshot))
         return len(snapshots)
+
+    def _clear_inactive_provider_data(self, active_providers: set[str]) -> None:
+        known_providers = {"demo", "aws", "gcp"}
+        inactive_providers = known_providers - active_providers
+        if not inactive_providers:
+            return
+        self.db.query(CostRecord).filter(CostRecord.provider.in_(inactive_providers)).delete(
+            synchronize_session=False
+        )
+        self.db.query(ResourceSnapshot).filter(ResourceSnapshot.provider.in_(inactive_providers)).delete(
+            synchronize_session=False
+        )

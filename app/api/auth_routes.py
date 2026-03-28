@@ -1,13 +1,20 @@
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models import Invite, User
-from app.schemas.admin import AuditLogResponse, InviteAcceptRequest, InviteCreateRequest, InviteResponse
+from app.schemas.admin import (
+    AuditLogPurgeRequest,
+    AuditLogPurgeResponse,
+    AuditLogResponse,
+    InviteAcceptRequest,
+    InviteCreateRequest,
+    InviteResponse,
+)
 from app.schemas.auth import LoginRequest, UserCreateRequest, UserResponse, UserUpdateRequest
 from app.services.audit import AuditService
 from app.services.auth import AuthService
@@ -132,11 +139,53 @@ def update_user(
 
 
 @router.get("/audit-logs", response_model=list[AuditLogResponse])
-def list_audit_logs(admin: User = Depends(require_admin), db: Session = Depends(get_db)) -> list[AuditLogResponse]:
-    from app.models import AuditLog
-
-    rows = db.execute(select(AuditLog).order_by(AuditLog.created_at.desc()).limit(100)).scalars().all()
+def list_audit_logs(
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    query: str | None = Query(default=None),
+    action: str | None = Query(default=None),
+    outcome: str | None = Query(default=None),
+    actor_email: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+) -> list[AuditLogResponse]:
+    rows = AuditService(db).list_entries(
+        query=query,
+        action=action,
+        outcome=outcome,
+        actor_email=actor_email,
+        limit=limit,
+    )
     return [AuditLogResponse.model_validate(row) for row in rows]
+
+
+@router.delete("/audit-logs", response_model=AuditLogPurgeResponse)
+def purge_audit_logs(
+    payload: AuditLogPurgeRequest,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> AuditLogPurgeResponse:
+    deleted_count = AuditService(db).purge_entries(
+        older_than_days=payload.older_than_days,
+        action=payload.action,
+        outcome=payload.outcome,
+        actor_email=payload.actor_email,
+        query=payload.query,
+    )
+    AuditService(db).record(
+        action="audit.purge",
+        actor=admin,
+        target_type="audit_log",
+        target_id=str(deleted_count),
+        details={
+            "deleted_count": deleted_count,
+            "older_than_days": payload.older_than_days,
+            "action": payload.action,
+            "outcome": payload.outcome,
+            "actor_email": payload.actor_email,
+            "query": payload.query,
+        },
+    )
+    return AuditLogPurgeResponse(deleted_count=deleted_count)
 
 
 @router.get("/invites", response_model=list[InviteResponse])

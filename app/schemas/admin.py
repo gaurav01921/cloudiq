@@ -18,6 +18,18 @@ class AuditLogResponse(BaseModel):
         from_attributes = True
 
 
+class AuditLogPurgeRequest(BaseModel):
+    older_than_days: int | None = None
+    action: str | None = None
+    outcome: str | None = None
+    actor_email: str | None = None
+    query: str | None = None
+
+
+class AuditLogPurgeResponse(BaseModel):
+    deleted_count: int
+
+
 class InviteCreateRequest(BaseModel):
     email: EmailStr
     full_name: str

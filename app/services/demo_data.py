@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta
+import math
 
 
 class DemoDataService:
@@ -16,9 +17,16 @@ class DemoDataService:
         for offset in range(self.lookback_days):
             usage_date = end - timedelta(days=self.lookback_days - offset)
             for idx, (service, base) in enumerate(services):
-                multiplier = 1.0
+                weekly_wave = 1 + (math.sin((offset / 7) * math.pi * 2) * 0.08)
+                daily_variation = 1 + (((offset + (idx * 2)) % 5) * 0.018)
+                service_weight = 1 + (idx * 0.035)
+                multiplier = weekly_wave * daily_variation * service_weight
+
                 if offset == self.lookback_days - 3 and idx == 0:
-                    multiplier = 2.4
+                    multiplier *= 1.92
+                elif offset == self.lookback_days - 6 and idx == 2:
+                    multiplier *= 1.22
+
                 records.append(
                     {
                         "provider": "demo",

@@ -12,7 +12,13 @@ class SyncResponse(BaseModel):
 
 class DashboardSummaryResponse(BaseModel):
     total_cost: float
+    actual_billed_cost: float
+    estimated_monthly_run_rate: float
+    projected_end_of_month_cost: float
     cost_source: str
+    billing_signal_status: str
+    has_actual_billing_data: bool
+    signal_days: int
     data_mode: str
     anomaly_count: int
     recommendation_count: int
@@ -24,6 +30,14 @@ class AnomalyStatusPoint(BaseModel):
     usage_date: str
     record_count: int
     total_cost: float
+    point_source: str
+
+
+class SyncTimelinePoint(BaseModel):
+    started_at: datetime
+    status: str
+    records_ingested: int
+    anomalies_detected: int
 
 
 class AnomalyStatusResponse(BaseModel):
@@ -31,8 +45,11 @@ class AnomalyStatusResponse(BaseModel):
     status_message: str
     min_days_required: int
     observed_days: int
+    signal_days: int
     latest_detection_run_at: datetime | None
+    timeline_mode: str
     points: list[AnomalyStatusPoint]
+    sync_markers: list[SyncTimelinePoint]
 
 
 class AnomalyResponse(BaseModel):
@@ -97,3 +114,13 @@ class DataModeResponse(BaseModel):
 
 class DataModeUpdateRequest(BaseModel):
     data_mode: str
+
+
+class NativeSignalStatusResponse(BaseModel):
+    provider: str
+    anomaly_monitor_count: int
+    active_native_anomaly_count: int
+    budget_count: int
+    budget_alert_count: int
+    compute_optimizer_status: str
+    trusted_advisor_available: bool

@@ -17,16 +17,38 @@ Cloud Cost Intelligence is a real cloud FinOps service scaffold that can ingest 
 
 ## Architecture
 
-- `app/connectors/aws/client.py`: AWS live billing/resource ingestion and remediation actions.
-- `app/connectors/gcp/client.py`: GCP billing export ingestion, resource discovery, and remediation actions.
-- `app/services/anomaly_detection.py`: ML-based anomaly detection pipeline.
-- `app/services/recommendations.py`: Optimization recommendation generation.
-- `app/services/optimization.py`: Safe execution layer for cloud API actions.
-- `app/services/demo_data.py`: Demo-mode seeded telemetry and recommendation data.
-- `app/services/job_monitor.py`: Background job run tracking.
-- `app/services/alerts.py`: Alert delivery.
-- `app/api/routes.py`: Control plane API.
-- `app/api/auth_routes.py`: Authentication, invites, and admin APIs.
+This repo now mirrors a lighter version of the target CCM architecture while reusing the same codebase.
+
+Logical control-plane mapping:
+
+- `UI and Dashboard Services`
+  - `app.main`
+  - `app.api.routes`
+  - `app.api.auth_routes`
+  - `app/static/*`
+- `CCM Manager`
+  - `app/services/cost_intelligence.py`
+  - `app/services/topology.py`
+- `Batch Service`
+  - `app/services/batch_service.py`
+  - `app/services/ingestion.py`
+  - `app/services/anomaly_detection.py`
+  - `app/services/recommendations.py`
+- `Event Service`
+  - `app/services/audit.py`
+  - `app/services/job_monitor.py`
+  - `app/services/alerts.py`
+- `Cloud Connectors`
+  - `app/connectors/aws/client.py`
+  - `app/connectors/gcp/client.py`
+
+Runtime shape:
+
+- `control-plane-web`: dashboard and API gateway
+- `ccm-batch-worker`: sync/anomaly/recommendation worker loop
+- `ccm-scheduler`: scheduler process for recurring sync triggers
+
+You can inspect the current live mapping through `GET /architecture`.
 
 ## Local setup
 
@@ -67,6 +89,8 @@ For a product demo with no cloud dependency, start from [.env.demo.example](C:\U
 ```powershell
 python -m app.cli runserver --host 127.0.0.1 --port 8000
 python -m app.cli sync
+python -m app.cli worker --interval 300
+python -m app.cli scheduler
 ```
 
 ## Docker
@@ -79,6 +103,12 @@ Files:
 
 - [Dockerfile](C:\Users\userc\OneDrive\Documents\Playground\Dockerfile)
 - [docker-compose.yml](C:\Users\userc\OneDrive\Documents\Playground\docker-compose.yml)
+
+The compose topology now runs:
+
+- `control-plane-web`
+- `ccm-batch-worker`
+- `ccm-scheduler`
 
 ## Environment templates
 
@@ -138,6 +168,7 @@ Roles:
 
 - `GET /health`
 - `GET /`
+- `GET /architecture`
 - `GET /auth/login`
 - `POST /auth/login`
 - `POST /auth/logout`

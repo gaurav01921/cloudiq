@@ -1,10 +1,11 @@
 from pathlib import Path
 
-from fastapi import APIRouter, Depends
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from app.api.auth_routes import current_user, require_operator
+from app.db.session import SessionLocal
 from app.db.session import get_db
 from app.models import User
 from app.schemas.api import (
@@ -20,22 +21,39 @@ from app.schemas.api import (
     SyncResponse,
 )
 from app.services.audit import AuditService
+from app.services.auth import AuthService
 from app.services.cost_intelligence import CostIntelligenceService
 from app.services.job_monitor import JobMonitorService
 from app.services.runtime_settings import RuntimeSettingsService
+from app.services.topology import TopologyService
 
 router = APIRouter()
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
 
 
-@router.get("/", include_in_schema=False)
-def dashboard(_: User = Depends(current_user)) -> FileResponse:
+@router.get("/", include_in_schema=False, response_model=None)
+def dashboard(request: Request) -> Response:
+    if "user_id" not in request.session:
+        return RedirectResponse(url="/auth/login", status_code=303)
+    db = SessionLocal()
+    try:
+        AuthService(db).get_current_user(request)
+    except HTTPException:
+        request.session.clear()
+        return RedirectResponse(url="/auth/login", status_code=303)
+    finally:
+        db.close()
     return FileResponse(STATIC_DIR / "index.html")
 
 
 @router.get("/health")
 def healthcheck() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@router.get("/architecture")
+def get_architecture(_: User = Depends(current_user)) -> dict:
+    return TopologyService().describe()
 
 
 @router.post("/sync", response_model=SyncResponse)
