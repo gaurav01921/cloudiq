@@ -3,133 +3,258 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cloud Cost Intelligence</title>
+  <title>Jambhala | Cloud Cost Intelligence</title>
+  <script>
+    (function () {
+      var savedTheme = null;
+      try {
+        savedTheme = localStorage.getItem("jambhala-theme");
+      } catch (error) {
+        savedTheme = null;
+      }
+      var theme = savedTheme === "dark" ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css?v=__STYLES_VERSION__">
 </head>
-<body>
+<body data-theme="light">
   <div class="app-shell">
-    <aside class="sidebar">
-      <div class="brand-block">
-        <div class="brand-mark">~</div>
-        <div>
-          <div class="brand-title">CloudCost IQ</div>
-          <div class="brand-subtitle">FinOps control plane</div>
-        </div>
+    <div id="loadingOverlay" class="loading-overlay">
+      <div class="loading-spinner"></div>
+    </div>
+
+    <div id="chartTooltip" class="chart-tooltip" hidden></div>
+
+    <header class="top-nav">
+      <div class="brand-lockup">
+        <a class="brand-link" href="#dashboardSection" aria-label="Jambhala dashboard">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8 22C6 20 5 17 6 14C7 11 10 9 13 9C14 9 15 9.3 16 9.8V8C16 7 17 6 18 6C19 6 20 7 20 8V9C21 8.5 22 8.5 23 9C26 10 28 13 27 16C26 19 23 22 20 23C19.5 23.3 19 23.5 18.5 23.7C18.2 23.85 17.8 23.85 17.5 23.7C17.2 23.55 17 23.3 17 23V20C17 19 16 18 15 18C14 18 13 19 13 20V23C13 23.3 12.8 23.55 12.5 23.7C12.2 23.85 11.8 23.85 11.5 23.7C10 23 9 22.5 8 22Z" fill="currentColor"/>
+              <path d="M14 12L15.5 10.5L17 12L15.5 13.5L14 12Z" fill="#F8FAFC"/>
+            </svg>
+          </span>
+          <span>
+            <span class="brand-title">Jambhala</span>
+            <span class="brand-subtitle">Guarding your cloud spend</span>
+          </span>
+        </a>
       </div>
 
-      <nav class="sidebar-nav">
-        <div class="nav-group-label">FinOps Control Plane</div>
+      <nav class="top-nav-links" aria-label="Primary">
         <a class="nav-item nav-item-active" href="#dashboardSection" data-section="dashboardSection">Dashboard</a>
         <a class="nav-item" href="#radarSection" data-section="radarSection">Anomaly Radar</a>
         <a class="nav-item" href="#optimizationSection" data-section="optimizationSection">Optimization Hub</a>
-
-        <div class="nav-group-label">Governance</div>
-        <a class="nav-item" href="#governanceSection" data-section="governanceSection">Access &amp; RBAC</a>
-        <a class="nav-item" href="#settingsSection" data-section="dashboardSection">Settings</a>
+        <a class="nav-item" href="#governanceSection" data-section="governanceSection">Governance</a>
       </nav>
 
-      <div class="sidebar-footer">
-        <div id="sessionInfo" class="sidebar-user">Loading session...</div>
-      </div>
-    </aside>
-
-    <main class="main-shell">
-      <header class="topbar">
-        <div class="topbar-controls">
-          <div class="control-pill control-pill-environment">
-            <span class="status-dot"></span>
-            <span id="environmentLabel">Production (AWS/GCP)</span>
-          </div>
-          <div class="control-pill">
-            <span id="dateRangeLabel">Current billing window</span>
+      <div class="top-nav-actions">
+        <div class="status-pill">
+          <span class="status-dot"></span>
+          <div>
+            <span class="status-pill-label">Status</span>
+            <strong id="environmentLabel">Production (AWS/GCP)</strong>
           </div>
         </div>
-      </header>
 
-      <section id="dashboardSection" class="dashboard-section">
-        <div class="hero-row">
-          <div class="hero-card">
-            <p class="eyebrow">Live FinOps control plane</p>
-            <h1>Cloud cost intelligence with anomaly radar and automated optimization.</h1>
+        <button id="profileButton" class="profile-pill profile-trigger" type="button" aria-haspopup="dialog" aria-controls="settingsModal">
+          <div class="profile-avatar" aria-hidden="true">J</div>
+          <div class="profile-copy">
+            <strong id="profileName">Loading session...</strong>
+            <span id="profileMeta">Syncing profile</span>
+          </div>
+        </button>
+      </div>
+    </header>
+
+    <div id="settingsModal" class="modal-shell" hidden>
+      <div id="settingsBackdrop" class="modal-backdrop"></div>
+      <section class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle">
+        <div class="settings-modal-header">
+          <div>
+            <p class="eyebrow">Profile settings</p>
+            <h2 id="settingsModalTitle">Workspace preferences</h2>
+          </div>
+          <button id="closeSettingsButton" class="icon-button icon-button-small" type="button" aria-label="Close settings">X</button>
+        </div>
+
+        <div class="settings-modal-grid">
+          <article class="modal-card">
+            <p class="eyebrow">Profile</p>
+            <div class="profile-sheet">
+              <div class="profile-avatar profile-avatar-large" aria-hidden="true" id="modalProfileAvatar">J</div>
+              <div>
+                <h3 id="modalProfileName" class="modal-title">Loading session...</h3>
+                <p id="modalProfileMeta" class="modal-copy">Syncing profile</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="modal-card">
+            <p class="eyebrow">Appearance</p>
+            <div class="theme-switch theme-switch-modal" role="group" aria-label="Color mode">
+              <button id="lightThemeButton" class="theme-option is-active" type="button" data-theme-value="light">Light</button>
+              <button id="darkThemeButton" class="theme-option" type="button" data-theme-value="dark">Dark</button>
+            </div>
+            <p class="modal-copy">Switch between Dia-inspired light mode and the refined dark workspace.</p>
+          </article>
+
+          <article class="modal-card modal-card-wide">
+            <div class="modal-card-heading">
+              <div>
+                <p class="eyebrow">AI availability</p>
+                <h3 class="modal-title">Gemini integration</h3>
+              </div>
+              <span id="geminiStatusBadge" class="chip chip-neutral">Not configured</span>
+            </div>
+            <p class="modal-copy">Add a Gemini API key to enable future AI-assisted FinOps workflows and profile-level assistant access.</p>
+            <label class="field" for="geminiApiKeyInput">
+              <span>Gemini API key</span>
+              <input id="geminiApiKeyInput" type="password" placeholder="Paste Gemini API key">
+            </label>
+            <div class="settings-inline-row">
+              <div id="geminiKeyHint" class="settings-helptext">No Gemini key stored yet.</div>
+              <div class="settings-inline-actions">
+                <button id="clearGeminiKeyButton" class="button button-ghost button-small" type="button">Clear key</button>
+                <button id="saveSettingsButton" class="button button-primary button-small" type="button">Save settings</button>
+              </div>
+            </div>
+            <div id="settingsStatus" class="auth-status">Settings sync with your current workspace.</div>
+          </article>
+        </div>
+      </section>
+    </div>
+
+    <main class="page-shell">
+      <section id="dashboardSection" class="dashboard-section hero-section">
+        <div class="hero-card">
+          <div class="hero-backdrop hero-backdrop-one" aria-hidden="true"></div>
+          <div class="hero-backdrop hero-backdrop-two" aria-hidden="true"></div>
+
+          <div class="hero-copy-block">
+            <p class="eyebrow">Live FinOps Intelligence</p>
+            <h1>Understand and <span class="gradient-word">optimize</span> your cloud costs</h1>
             <p class="hero-copy">
-              Monitor live AWS and GCP usage, detect real cost anomalies, and execute safe remediation actions from one operating surface.
+              Monitor AWS and GCP usage in real-time, detect anomalies with AI, and automate cost optimization.
             </p>
           </div>
 
-          <div id="settingsSection" class="hero-sidecard">
-            <div class="hero-sidecard-heading">
-              <span class="eyebrow">Platform session</span>
-              <span id="roleLabel" class="mini-caption">Loading role...</span>
+          <label class="hero-search" for="heroPrompt">
+            <span class="hero-search-icon" aria-hidden="true">AI</span>
+            <input id="heroPrompt" type="text" placeholder="Ask anything about your cloud spend..." aria-label="Ask about your cloud spend">
+            <span class="hero-search-hint">Live context</span>
+          </label>
+
+          <div class="hero-meta-row">
+            <div class="hero-meta">
+              <span class="hero-meta-label">Billing window</span>
+              <strong id="dateRangeLabel">Current billing window</strong>
             </div>
-
-            <label class="field field-dark" for="dataModeSelect">
-              <span>Data Mode</span>
-              <select id="dataModeSelect">
-                <option value="live">live</option>
-                <option value="demo">demo</option>
-                <option value="hybrid">hybrid</option>
-              </select>
-            </label>
-
-            <div id="dataModeStatus" class="inline-status inline-status-dark">Reading current mode...</div>
-            <button id="syncButton" class="button button-primary button-block">Run Live Sync</button>
-            <button id="refreshButton" class="button button-secondary button-block">Refresh Dashboard</button>
-            <button id="logoutButton" class="button button-ghost button-block">Logout</button>
+            <div class="hero-meta">
+              <span class="hero-meta-label">Operations</span>
+              <strong id="syncResult">Dashboard ready.</strong>
+            </div>
           </div>
         </div>
 
-        <section class="metric-strip">
-          <article class="kpi-card">
-            <div class="kpi-topline">
-              <span id="totalCostLabel" class="metric-label">MTD Spend</span>
-              <span id="costSourceBadge" class="chip chip-neutral">Stable</span>
+        <aside id="settingsSection" class="control-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Control Panel</p>
+              <h2>Operational controls</h2>
             </div>
-            <strong id="totalCost" class="kpi-value">$0.00</strong>
-            <p id="costSource" class="kpi-copy">Cost source: awaiting data</p>
-          </article>
+            <span id="roleLabel" class="mini-chip">Loading role...</span>
+          </div>
 
-          <article class="kpi-card">
-            <div class="kpi-topline">
-              <span id="forecastCostLabel" class="metric-label">Forecasted EOM</span>
-              <span id="forecastCostBadge" class="chip chip-neutral">Projected</span>
-            </div>
-            <strong id="forecastCost" class="kpi-value">$0.00</strong>
-            <p id="lastSync" class="kpi-copy">Waiting for sync data</p>
-          </article>
+          <div class="control-stack">
+            <label class="field" for="dataModeSelect">
+              <span>Data mode</span>
+              <select id="dataModeSelect">
+                <option value="live">Live</option>
+                <option value="demo">Demo</option>
+                <option value="hybrid">Hybrid</option>
+              </select>
+            </label>
 
-          <article class="kpi-card">
-            <div class="kpi-topline">
-              <span class="metric-label">Realized Savings</span>
-              <span class="chip chip-positive">Verified</span>
+            <div class="status-card">
+              <div>
+                <span class="status-card-label">Connection</span>
+                <strong id="dataModeStatus">Reading current mode...</strong>
+              </div>
+              <span class="status-chip status-chip-live">Connected</span>
             </div>
-            <strong id="potentialSavings" class="kpi-value kpi-value-positive">$0.00/mo</strong>
-            <p id="syncResult" class="kpi-copy">No execution activity yet.</p>
-          </article>
 
-          <article class="kpi-card">
-            <div class="kpi-topline">
-              <span class="metric-label">Active Anomalies</span>
-              <span id="anomalySeverityBadge" class="chip chip-danger">Critical</span>
+            <div class="button-row">
+              <button id="syncButton" class="button button-primary" type="button">Run Live Sync</button>
+              <button id="refreshButton" class="button button-secondary" type="button">Refresh</button>
             </div>
-            <strong id="anomalyCount" class="kpi-value">0</strong>
-            <p id="anomalyStatusMessage" class="kpi-copy">No anomaly status yet.</p>
-          </article>
-        </section>
+
+            <button id="logoutButton" class="button button-ghost" type="button">Logout</button>
+          </div>
+
+          <div class="session-card">
+            <span class="session-label">Current operator</span>
+            <div id="sessionInfo" class="session-info">Loading session...</div>
+          </div>
+        </aside>
       </section>
 
-      <section id="radarSection" class="dashboard-section">
+      <section class="metric-strip">
+        <article class="metric-card">
+          <div class="metric-topline">
+            <span id="totalCostLabel" class="metric-label">MTD Spend</span>
+            <span id="costSourceBadge" class="chip chip-neutral">Stable</span>
+          </div>
+          <strong id="totalCost" class="metric-value">$0.00</strong>
+          <p id="costSource" class="metric-copy">Cost source: awaiting data</p>
+        </article>
+
+        <article class="metric-card">
+          <div class="metric-topline">
+            <span id="forecastCostLabel" class="metric-label">Forecasted EOM</span>
+            <span id="forecastCostBadge" class="chip chip-neutral">Projected</span>
+          </div>
+          <strong id="forecastCost" class="metric-value">$0.00</strong>
+          <p id="lastSync" class="metric-copy">Waiting for sync data</p>
+        </article>
+
+        <article class="metric-card">
+          <div class="metric-topline">
+            <span class="metric-label">Realized Savings</span>
+            <span class="chip chip-positive">Verified</span>
+          </div>
+          <strong id="potentialSavings" class="metric-value metric-value-positive">$0.00/mo</strong>
+          <p id="recommendationCount" class="metric-copy metric-copy-number">0 candidates available</p>
+        </article>
+
+        <article class="metric-card">
+          <div class="metric-topline">
+            <span class="metric-label">Active Anomalies</span>
+            <span id="anomalySeverityBadge" class="chip chip-danger">Critical</span>
+          </div>
+          <strong id="anomalyCount" class="metric-value">0</strong>
+          <p id="anomalyStatusMessage" class="metric-copy">No anomaly status yet.</p>
+        </article>
+      </section>
+
+      <section id="radarSection" class="radar-grid">
         <article class="surface-card chart-card">
-          <div class="surface-heading">
+          <div class="surface-heading surface-heading-spread">
             <div>
-              <h2>Cost Trend Analysis</h2>
+              <p class="eyebrow">Cost graph</p>
+              <h2>Cloud spend trajectory</h2>
               <p id="anomalyReadiness" class="surface-copy">Waiting for detector state</p>
             </div>
-            <div class="legend">
-              <span class="legend-item"><span class="legend-dot legend-dot-line"></span>Baseline</span>
-              <span class="legend-item"><span class="legend-dot legend-dot-alert"></span>Anomaly</span>
+
+            <div class="surface-actions">
+              <div class="compare-toggle-group" role="group" aria-label="Chart comparison toggle">
+                <button class="compare-toggle is-active" type="button" data-compare-mode="month">This month</button>
+                <button class="compare-toggle" type="button" data-compare-mode="compare">vs last month</button>
+              </div>
             </div>
           </div>
 
@@ -139,52 +264,76 @@
           </div>
           <div id="syncTimeline" class="sync-timeline empty-state">No recent sync markers yet.</div>
         </article>
+
+        <aside class="radar-side">
+          <article class="surface-card insight-card">
+            <div class="surface-heading">
+              <div>
+                <p class="eyebrow">AI insight</p>
+                <h2>What needs attention</h2>
+              </div>
+            </div>
+            <div id="aiInsightPanel" class="insight-content empty-state">Insights will appear once usage data is loaded.</div>
+          </article>
+
+          <article class="surface-card anomaly-panel">
+            <div class="surface-heading">
+              <div>
+                <p class="eyebrow">Anomaly panel</p>
+                <h2>Radar actions</h2>
+              </div>
+              <div class="icon-action-row" aria-label="Alert actions">
+                <button class="icon-button icon-button-small" type="button" title="Send to Slack">S</button>
+                <button class="icon-button icon-button-small" type="button" title="Create Jira issue">J</button>
+                <button class="icon-button icon-button-small" type="button" title="Share in Teams">T</button>
+              </div>
+            </div>
+            <div id="anomalySignalPanel" class="anomaly-signal-card empty-state">Anomaly summaries will appear here.</div>
+          </article>
+        </aside>
       </section>
 
-      <section class="content-split">
-        <article id="optimizationSection" class="surface-card stack-card">
+      <section class="content-grid">
+        <article id="optimizationSection" class="surface-card">
           <div class="surface-heading">
             <div>
-              <h2>Actionable Insights</h2>
-              <p class="surface-copy">Approve recommendations, validate them in dry run, and execute via cloud APIs.</p>
-            </div>
-            <div class="surface-linkline">
-              <span id="recommendationCount" class="pill-counter">0</span>
-              <span class="surface-linkcopy">Optimization hub</span>
+              <p class="eyebrow">Optimization Hub</p>
+              <h2>Actionable recommendations</h2>
+              <p class="surface-copy">Approve dry runs, validate impact, and execute optimization actions from a single surface.</p>
             </div>
           </div>
           <div id="recommendations" class="stack-list empty-state">No optimization candidates yet.</div>
         </article>
 
-        <article class="surface-card stack-card recent-card">
+        <article class="surface-card">
           <div class="surface-heading">
             <div>
-              <h2>Recent Activity</h2>
+              <p class="eyebrow">Recent activity</p>
+              <h2>Operational timeline</h2>
               <p class="surface-copy">Latest syncs, access events, and optimization outcomes.</p>
-            </div>
-            <div class="surface-linkline">
-              <span class="surface-linkcopy">Audit stream</span>
             </div>
           </div>
           <div id="recentActivity" class="activity-stream empty-state">Recent activity will appear here.</div>
         </article>
       </section>
 
-      <section class="content-split">
-        <article class="surface-card stack-card">
+      <section class="content-grid">
+        <article class="surface-card">
           <div class="surface-heading">
             <div>
-              <h2>Cost Anomalies</h2>
-              <p class="surface-copy">Isolation Forest and hybrid heuristics over recent billing patterns.</p>
+              <p class="eyebrow">Anomalies</p>
+              <h2>Detected cost spikes</h2>
+              <p class="surface-copy">Isolation Forest and hybrid heuristics across recent billing patterns.</p>
             </div>
           </div>
           <div id="anomalies" class="stack-list empty-state">No anomalies detected in the current data window.</div>
         </article>
 
-        <article class="surface-card stack-card console-card">
+        <article class="surface-card console-panel">
           <div class="surface-heading">
             <div>
-              <h2>Execution Console</h2>
+              <p class="eyebrow">Console</p>
+              <h2>Execution feedback</h2>
               <p class="surface-copy">Live operational feedback from sync, mode changes, and optimization runs.</p>
             </div>
           </div>
@@ -193,10 +342,11 @@
       </section>
 
       <section id="governanceSection" class="dashboard-section">
-        <article class="surface-card stack-card">
+        <article class="surface-card">
           <div class="surface-heading">
             <div>
-              <h2>Access &amp; RBAC</h2>
+              <p class="eyebrow">Governance</p>
+              <h2>Access and RBAC</h2>
               <p id="userAdminHint" class="surface-copy">Admin tools hidden</p>
             </div>
           </div>
@@ -206,6 +356,6 @@
     </main>
   </div>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=__APP_VERSION__"></script>
 </body>
 </html>

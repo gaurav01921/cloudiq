@@ -3,28 +3,37 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Accept Invite | Cloud Cost Intelligence</title>
+  <title>Accept Invite | Jambhala</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
   <div class="page-shell auth-shell">
     <section class="panel auth-panel">
-      <p class="eyebrow">Team Invite</p>
-      <h1>Accept your access invite</h1>
-      <p class="status-copy">Set a password to activate your dashboard account.</p>
+      <div class="brand-block" style="justify-content: center; padding-bottom: 8px;">
+        <div class="brand-mark" style="width: 56px; height: 56px;">
+          <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 22C6 20 5 17 6 14C7 11 10 9 13 9C14 9 15 9.3 16 9.8V8C16 7 17 6 18 6C19 6 20 7 20 8V9C21 8.5 22 8.5 23 9C26 10 28 13 27 16C26 19 23 22 20 23C19.5 23.3 19 23.5 18.5 23.7C18.2 23.85 17.8 23.85 17.5 23.7C17.2 23.55 17 23.3 17 23V20C17 19 16 18 15 18C14 18 13 19 13 20V23C13 23.3 12.8 23.55 12.5 23.7C12.2 23.85 11.8 23.85 11.5 23.7C10 23 9 22.5 8 22Z" fill="white" fill-opacity="0.95"/>
+            <path d="M14 12L15.5 10.5L17 12L15.5 13.5L14 12Z" fill="#fbbf24"/>
+            <path d="M14.5 11.5L15 11L15.5 11.5L15 12L14.5 11.5Z" fill="white" fill-opacity="0.8"/>
+          </svg>
+        </div>
+      </div>
+      <p class="eyebrow" style="text-align: center;">Team Invite</p>
+      <h1 style="text-align: center; font-size: 1.6rem; margin: 8px 0 24px;">Join Jambhala</h1>
+      <p class="status-copy" style="text-align: center; color: var(--muted); margin-bottom: 28px;">Set a password to activate your account.</p>
       <form id="acceptInviteForm" class="auth-form">
         <label class="field">
           <span>Full Name</span>
-          <input id="acceptName" autocomplete="name">
+          <input id="acceptName" autocomplete="name" placeholder="Your full name">
         </label>
         <label class="field">
           <span>Password</span>
-          <input id="acceptPassword" type="password" required autocomplete="new-password">
+          <input id="acceptPassword" type="password" required autocomplete="new-password" placeholder="Create a password">
         </label>
-        <button class="button button-primary" type="submit">Accept Invite</button>
+        <button class="button button-primary" type="submit" style="margin-top: 8px;">Accept Invite</button>
       </form>
       <div id="acceptStatus" class="auth-status">Waiting for invite token.</div>
     </section>

@@ -1,0 +1,2 @@
+[console_scripts]
+cloud-cost-intelligence = app.cli:main

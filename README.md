@@ -47,7 +47,7 @@ Runtime shape:
 - `control-plane-web`: dashboard and API gateway
 - `ccm-batch-worker`: sync/anomaly/recommendation worker loop
 - `ccm-scheduler`: scheduler process for recurring sync triggers
-
+ 7
 You can inspect the current live mapping through `GET /architecture`.
 
 ## Local setup

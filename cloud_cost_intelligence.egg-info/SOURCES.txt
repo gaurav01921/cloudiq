@@ -1,6 +1,7 @@
 README.md
 pyproject.toml
 app/__init__.py
+app/cli.py
 app/main.py
 app/api/__init__.py
 app/api/auth_routes.py
@@ -37,6 +38,7 @@ app/tasks/scheduler.py
 cloud_cost_intelligence.egg-info/PKG-INFO
 cloud_cost_intelligence.egg-info/SOURCES.txt
 cloud_cost_intelligence.egg-info/dependency_links.txt
+cloud_cost_intelligence.egg-info/entry_points.txt
 cloud_cost_intelligence.egg-info/requires.txt
 cloud_cost_intelligence.egg-info/top_level.txt
 tests/test_pipeline.py

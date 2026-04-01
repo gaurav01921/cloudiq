@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import FileResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from app.api.auth_routes import current_user, require_operator
@@ -11,6 +11,8 @@ from app.models import User
 from app.schemas.api import (
     AnomalyResponse,
     AnomalyStatusResponse,
+    DashboardSettingsResponse,
+    DashboardSettingsUpdateRequest,
     DashboardSummaryResponse,
     DataModeResponse,
     DataModeUpdateRequest,
@@ -43,7 +45,23 @@ def dashboard(request: Request) -> Response:
         return RedirectResponse(url="/auth/login", status_code=303)
     finally:
         db.close()
-    return FileResponse(STATIC_DIR / "index.html")
+    index_path = STATIC_DIR / "index.html"
+    styles_version = int((STATIC_DIR / "styles.css").stat().st_mtime)
+    app_version = int((STATIC_DIR / "app.js").stat().st_mtime)
+    html = index_path.read_text(encoding="utf-8")
+    html = (
+        html
+        .replace("__STYLES_VERSION__", str(styles_version))
+        .replace("__APP_VERSION__", str(app_version))
+    )
+    return HTMLResponse(
+        content=html,
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
 
 
 @router.get("/health")
@@ -106,6 +124,63 @@ def get_data_mode(
     db: Session = Depends(get_db),
 ) -> DataModeResponse:
     return DataModeResponse(data_mode=RuntimeSettingsService(db).get_data_mode())
+
+
+@router.get("/settings", response_model=DashboardSettingsResponse)
+def get_dashboard_settings(
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+) -> DashboardSettingsResponse:
+    runtime = RuntimeSettingsService(db)
+    gemini_api_key = runtime.get_gemini_api_key()
+    return DashboardSettingsResponse(
+        full_name=user.full_name,
+        email=user.email,
+        role=user.role,
+        theme=runtime.get_theme(),
+        gemini_api_key_configured=bool(gemini_api_key),
+        gemini_api_key_hint=runtime.mask_api_key(gemini_api_key),
+    )
+
+
+@router.put("/settings", response_model=DashboardSettingsResponse)
+def update_dashboard_settings(
+    payload: DashboardSettingsUpdateRequest,
+    user: User = Depends(require_operator),
+    db: Session = Depends(get_db),
+) -> DashboardSettingsResponse:
+    runtime = RuntimeSettingsService(db)
+
+    if payload.theme is not None:
+        runtime.set_theme(payload.theme)
+
+    if payload.clear_gemini_api_key:
+        runtime.clear_gemini_api_key()
+    elif payload.gemini_api_key is not None:
+        normalized = payload.gemini_api_key.strip()
+        if normalized:
+            runtime.set_gemini_api_key(normalized)
+
+    gemini_api_key = runtime.get_gemini_api_key()
+    AuditService(db).record(
+        action="settings.dashboard.update",
+        actor=user,
+        target_type="system",
+        target_id="dashboard_settings",
+        details={
+            "theme": runtime.get_theme(),
+            "gemini_api_key_configured": bool(gemini_api_key),
+            "gemini_api_key_cleared": payload.clear_gemini_api_key,
+        },
+    )
+    return DashboardSettingsResponse(
+        full_name=user.full_name,
+        email=user.email,
+        role=user.role,
+        theme=runtime.get_theme(),
+        gemini_api_key_configured=bool(gemini_api_key),
+        gemini_api_key_hint=runtime.mask_api_key(gemini_api_key),
+    )
 
 
 @router.put("/data-mode", response_model=DataModeResponse)

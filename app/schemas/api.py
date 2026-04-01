@@ -116,6 +116,21 @@ class DataModeUpdateRequest(BaseModel):
     data_mode: str
 
 
+class DashboardSettingsResponse(BaseModel):
+    full_name: str
+    email: str
+    role: str
+    theme: str
+    gemini_api_key_configured: bool
+    gemini_api_key_hint: str | None = None
+
+
+class DashboardSettingsUpdateRequest(BaseModel):
+    theme: str | None = None
+    gemini_api_key: str | None = None
+    clear_gemini_api_key: bool = False
+
+
 class NativeSignalStatusResponse(BaseModel):
     provider: str
     anomaly_monitor_count: int

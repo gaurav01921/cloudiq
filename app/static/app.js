@@ -31,17 +31,98 @@ const dataModeSelect = document.getElementById("dataModeSelect");
 const dataModeStatus = document.getElementById("dataModeStatus");
 const userManagement = document.getElementById("userManagement");
 const userAdminHint = document.getElementById("userAdminHint");
+const profileName = document.getElementById("profileName");
+const profileMeta = document.getElementById("profileMeta");
+const profileButton = document.getElementById("profileButton");
+const settingsModal = document.getElementById("settingsModal");
+const settingsBackdrop = document.getElementById("settingsBackdrop");
+const closeSettingsButton = document.getElementById("closeSettingsButton");
+const modalProfileAvatar = document.getElementById("modalProfileAvatar");
+const modalProfileName = document.getElementById("modalProfileName");
+const modalProfileMeta = document.getElementById("modalProfileMeta");
+const geminiStatusBadge = document.getElementById("geminiStatusBadge");
+const geminiApiKeyInput = document.getElementById("geminiApiKeyInput");
+const geminiKeyHint = document.getElementById("geminiKeyHint");
+const saveSettingsButton = document.getElementById("saveSettingsButton");
+const clearGeminiKeyButton = document.getElementById("clearGeminiKeyButton");
+const settingsStatus = document.getElementById("settingsStatus");
+const themeButtons = Array.from(document.querySelectorAll(".theme-option"));
+const chartTooltip = document.getElementById("chartTooltip");
+const aiInsightPanel = document.getElementById("aiInsightPanel");
+const anomalySignalPanel = document.getElementById("anomalySignalPanel");
+const compareToggleButtons = Array.from(document.querySelectorAll(".compare-toggle"));
 const navItems = Array.from(document.querySelectorAll(".nav-item[href^='#']"));
+const brandLink = document.querySelector(".brand-link");
+
+const domElements = {
+  totalCost,
+  totalCostLabel,
+  forecastCost,
+  forecastCostLabel,
+  forecastCostBadge,
+  anomalyCount,
+  recommendationCount,
+  potentialSavings,
+  lastSync,
+  costSource,
+  costSourceBadge,
+  anomalySeverityBadge,
+  anomalyReadiness,
+  anomalyStatusMessage,
+  anomalyGraphMeta,
+  anomalyGraph,
+  syncTimeline,
+  anomaliesContainer,
+  recommendationsContainer,
+  recentActivity,
+  consoleEl,
+  syncResult,
+  syncButton,
+  refreshButton,
+  logoutButton,
+  sessionInfo,
+  roleLabel,
+  environmentLabel,
+  dateRangeLabel,
+  dataModeSelect,
+  dataModeStatus,
+  userManagement,
+  userAdminHint,
+  profileName,
+  profileMeta,
+  profileButton,
+  settingsModal,
+  settingsBackdrop,
+  closeSettingsButton,
+  modalProfileAvatar,
+  modalProfileName,
+  modalProfileMeta,
+  geminiStatusBadge,
+  geminiApiKeyInput,
+  geminiKeyHint,
+  saveSettingsButton,
+  clearGeminiKeyButton,
+  settingsStatus,
+  themeButtons,
+  chartTooltip,
+  aiInsightPanel,
+  anomalySignalPanel,
+  compareToggleButtons,
+  navItems,
+  loadingOverlay: document.getElementById("loadingOverlay"),
+};
 
 let currentUser = null;
 let dataModeDirty = false;
 let latestAuditLogs = [];
 let visibleAuditCount = 12;
+let chartCompareMode = "month";
+let currentDashboardSettings = null;
 
 function log(message, payload) {
   const timestamp = new Date().toLocaleTimeString();
   const line = payload ? `${timestamp} ${message}\n${JSON.stringify(payload, null, 2)}` : `${timestamp} ${message}`;
-  consoleEl.textContent = `${line}\n\n${consoleEl.textContent}`.trim();
+  domElements.consoleEl.textContent = `${line}\n\n${domElements.consoleEl.textContent}`.trim();
 }
 
 function money(value) {
@@ -80,10 +161,7 @@ function costSourceBadgeLabel(summary) {
 }
 
 function forecastValueLabel(summary) {
-  if (summary.has_actual_billing_data) {
-    return "Forecasted EOM";
-  }
-  return "Run Rate";
+  return summary.has_actual_billing_data ? "Forecasted EOM" : "Run Rate";
 }
 
 function forecastBadgeLabel(summary) {
@@ -191,8 +269,8 @@ function monthDateRangeLabel(points) {
   return `${longDate(first)} - ${longDate(last)}`;
 }
 
-function buildLinePath(points, width, height, padding) {
-  const maxCost = Math.max(...points.map((point) => point.total_cost), 0.01);
+function buildLinePath(points, width, height, padding, explicitMaxCost = null) {
+  const maxCost = explicitMaxCost ?? Math.max(...points.map((point) => point.total_cost), 0.01);
   const innerWidth = width - (padding * 2);
   const innerHeight = height - (padding * 2);
   const step = points.length > 1 ? innerWidth / (points.length - 1) : 0;
@@ -204,8 +282,180 @@ function buildLinePath(points, width, height, padding) {
   });
 
   const line = mapped.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
-  const area = `${line} L ${mapped[mapped.length - 1].x} ${height - padding} L ${mapped[0].x} ${height - padding} Z`;
+  const area = mapped.length
+    ? `${line} L ${mapped[mapped.length - 1].x} ${height - padding} L ${mapped[0].x} ${height - padding} Z`
+    : "";
   return { mapped, line, area, maxCost };
+}
+
+function sanitizeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function setTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  document.body.dataset.theme = theme;
+  localStorage.setItem("jambhala-theme", theme);
+  themeButtons.forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.themeValue === theme);
+  });
+}
+
+function initializeTheme() {
+  const savedTheme = localStorage.getItem("jambhala-theme");
+  const nextTheme = savedTheme === "dark" || savedTheme === "light" ? savedTheme : "light";
+  setTheme(nextTheme);
+}
+
+function setSettingsStatus(message, state = "") {
+  if (!settingsStatus) {
+    return;
+  }
+  settingsStatus.className = state ? `auth-status auth-status-${state}` : "auth-status";
+  settingsStatus.textContent = message;
+}
+
+function toggleSettingsModal(open) {
+  if (!settingsModal) {
+    return;
+  }
+  settingsModal.hidden = !open;
+}
+
+function applyProfileIdentity(fullName, email, role) {
+  const initials = (fullName || "J")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || "")
+    .join("");
+
+  domElements.sessionInfo.textContent = `${fullName}\n${email}`;
+  domElements.roleLabel.textContent = role;
+  domElements.profileName.textContent = fullName;
+  domElements.profileMeta.textContent = `${role} - ${email}`;
+  domElements.modalProfileName.textContent = fullName;
+  domElements.modalProfileMeta.textContent = `${role} - ${email}`;
+
+  document.querySelectorAll(".profile-avatar").forEach((avatar) => {
+    avatar.textContent = initials || "J";
+  });
+}
+
+function populateSettingsModal(settings) {
+  currentDashboardSettings = settings;
+  applyProfileIdentity(settings.full_name, settings.email, settings.role);
+  setTheme(settings.theme || "light");
+  geminiStatusBadge.textContent = settings.gemini_api_key_configured ? "Configured" : "Not configured";
+  geminiStatusBadge.className = settings.gemini_api_key_configured ? "chip chip-positive" : "chip chip-neutral";
+  geminiKeyHint.textContent = settings.gemini_api_key_configured
+    ? `Stored key: ${settings.gemini_api_key_hint || "configured"}`
+    : "No Gemini key stored yet.";
+  geminiApiKeyInput.value = "";
+  setSettingsStatus("Settings sync with your current workspace.");
+}
+
+function showChartTooltip({ clientX, clientY, date, value, records }) {
+  if (!chartTooltip) {
+    return;
+  }
+  chartTooltip.hidden = false;
+  chartTooltip.innerHTML = `<strong>${sanitizeHtml(date)}</strong><span>${sanitizeHtml(value)}</span><span>${sanitizeHtml(records)}</span>`;
+  chartTooltip.style.left = `${clientX}px`;
+  chartTooltip.style.top = `${clientY}px`;
+}
+
+function hideChartTooltip() {
+  if (chartTooltip) {
+    chartTooltip.hidden = true;
+  }
+}
+
+function renderAnomalySignal(status, anomalyItems = []) {
+  if (!status.points.length) {
+    anomalySignalPanel.className = "anomaly-signal-card empty-state";
+    anomalySignalPanel.textContent = "Anomaly summaries will appear here.";
+    return;
+  }
+
+  const sample = status.points.slice(-12);
+  const width = 280;
+  const height = 88;
+  const padding = 8;
+  const sampleMax = Math.max(...sample.map((point) => point.total_cost), 0.01);
+  const { mapped, line } = buildLinePath(sample, width, height, padding, sampleMax);
+  const flagged = anomalyItems.length ? anomalyItems[0] : null;
+  const focusPoint = flagged
+    ? mapped.find((point) => point.usage_date === flagged.usage_date) || mapped[mapped.length - 1]
+    : mapped[mapped.length - 1];
+
+  anomalySignalPanel.className = "anomaly-signal-card";
+  anomalySignalPanel.innerHTML = `
+    <svg class="signal-sparkline" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-label="Recent anomaly signal">
+      <path d="${line}"></path>
+      ${focusPoint ? `<circle cx="${focusPoint.x}" cy="${focusPoint.y}" r="4"></circle>` : ""}
+    </svg>
+    <p class="signal-copy">
+      ${flagged
+        ? `Highest concern: ${sanitizeHtml(flagged.scope_key)} spiked to ${sanitizeHtml(money(flagged.observed_cost))} on ${sanitizeHtml(shortDate(flagged.usage_date))}.`
+        : `No acute anomaly spike right now. ${sanitizeHtml(status.status_message)}`}
+    </p>
+  `;
+}
+
+function renderAiInsight(summary, anomalyItems = [], recommendationItems = []) {
+  const topAnomaly = anomalyItems[0];
+  const topRecommendation = recommendationItems[0];
+
+  if (!topAnomaly && !topRecommendation) {
+    aiInsightPanel.className = "insight-content empty-state";
+    aiInsightPanel.textContent = "Insights will appear once usage data is loaded.";
+    return;
+  }
+
+  let headline = "Spend looks steady across your current cloud footprint.";
+  let explanation = "No high-priority anomalies or recommendations are active right now.";
+  let action = `Continue monitoring current trend lines. Estimated monthly savings currently sit at ${money(summary.estimated_monthly_savings)}.`;
+  let severityLabel = "Stable";
+  let severityClass = "badge-neutral";
+
+  if (topAnomaly) {
+    const regionHint = topAnomaly.scope_key?.split(":").slice(1).join(" ") || topAnomaly.scope_key;
+    headline = `Cost spike detected in ${topAnomaly.scope_key}.`;
+    explanation = `Observed ${money(topAnomaly.observed_cost)} versus expected ${money(topAnomaly.expected_cost)} on ${shortDate(topAnomaly.usage_date)}${regionHint ? ` across ${regionHint}` : ""}.`;
+    severityLabel = anomalySeverityLabel(anomalyItems.length);
+    severityClass = anomalyItems.length >= 3 ? "badge-danger" : "badge-warning";
+  }
+
+  if (topRecommendation) {
+    const savingsRatio = summary.total_cost > 0
+      ? Math.round((topRecommendation.estimated_monthly_savings / summary.total_cost) * 100)
+      : null;
+    action = savingsRatio && savingsRatio > 0
+      ? `${topRecommendation.description} -> save ${savingsRatio}%`
+      : `${topRecommendation.description} -> saves ${money(topRecommendation.estimated_monthly_savings)}/mo`;
+  }
+
+  aiInsightPanel.className = "insight-content";
+  aiInsightPanel.innerHTML = `
+    <div class="item-topline">
+      <span class="badge ${severityClass}">${sanitizeHtml(severityLabel)}</span>
+      <span class="item-meta">${sanitizeHtml(environmentLabel.textContent)}</span>
+    </div>
+    <div class="insight-highlight">
+      <p class="insight-title">${sanitizeHtml(headline)}</p>
+      <p class="insight-copy">${sanitizeHtml(explanation)}</p>
+    </div>
+    <div>
+      <p class="eyebrow">Suggested action</p>
+      <p class="insight-copy">${sanitizeHtml(action)}</p>
+    </div>
+  `;
 }
 
 async function getJson(path, options = {}) {
@@ -227,12 +477,46 @@ async function getJson(path, options = {}) {
 
 async function requireSession() {
   currentUser = await getJson("/auth/me");
-  sessionInfo.textContent = `${currentUser.full_name}\n${currentUser.email}`;
-  roleLabel.textContent = `${currentUser.full_name} - ${currentUser.role}`;
+  applyProfileIdentity(currentUser.full_name, currentUser.email, currentUser.role);
   const canOperate = currentUser.role === "operator" || currentUser.role === "admin";
-  syncButton.disabled = !canOperate;
-  dataModeSelect.disabled = !canOperate;
-  recommendationsContainer.dataset.canOperate = String(canOperate);
+  domElements.syncButton.disabled = !canOperate;
+  domElements.dataModeSelect.disabled = !canOperate;
+  domElements.recommendationsContainer.dataset.canOperate = String(canOperate);
+}
+
+async function loadSettings() {
+  const settings = await getJson("/settings");
+  populateSettingsModal(settings);
+}
+
+async function saveDashboardSettings(options = {}) {
+  const payload = {
+    theme: document.body.dataset.theme || "light",
+    gemini_api_key: options.clearGeminiKey ? null : geminiApiKeyInput.value.trim() || null,
+    clear_gemini_api_key: Boolean(options.clearGeminiKey),
+  };
+
+  saveSettingsButton.disabled = true;
+  clearGeminiKeyButton.disabled = true;
+  setSettingsStatus(options.clearGeminiKey ? "Removing Gemini key..." : "Saving settings...", "pending");
+  try {
+    const settings = await getJson("/settings", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+    populateSettingsModal(settings);
+    setSettingsStatus("Settings saved successfully.", "success");
+    log("Dashboard settings updated.", {
+      theme: settings.theme,
+      gemini_api_key_configured: settings.gemini_api_key_configured,
+    });
+  } catch (error) {
+    setSettingsStatus(`Settings update failed: ${error.message}`, "error");
+    log("Dashboard settings update failed.", { error: error.message });
+  } finally {
+    saveSettingsButton.disabled = false;
+    clearGeminiKeyButton.disabled = false;
+  }
 }
 
 async function loadDataMode() {
@@ -244,30 +528,32 @@ async function loadDataMode() {
 }
 
 async function updateDataMode() {
-  const selectedMode = dataModeSelect.value;
-  const previousMode = dataModeSelect.dataset.currentMode || selectedMode;
-  dataModeSelect.disabled = true;
-  dataModeStatus.textContent = `Switching to ${selectedMode}...`;
+  const selectedMode = domElements.dataModeSelect.value;
+  const previousMode = domElements.dataModeSelect.dataset.currentMode || selectedMode;
+  domElements.dataModeSelect.disabled = true;
+  domElements.dataModeStatus.textContent = `Switching to ${selectedMode}...`;
+  domElements.loadingOverlay.classList.add("visible");
   try {
     const result = await getJson("/data-mode", {
       method: "PUT",
       body: JSON.stringify({ data_mode: selectedMode }),
     });
-    dataModeSelect.value = result.data_mode;
-    dataModeSelect.dataset.currentMode = result.data_mode;
-    environmentLabel.textContent = environmentText(result.data_mode);
+    domElements.dataModeSelect.value = result.data_mode;
+    domElements.dataModeSelect.dataset.currentMode = result.data_mode;
+    domElements.environmentLabel.textContent = environmentText(result.data_mode);
     dataModeDirty = true;
-    dataModeStatus.textContent = `${dataModeLabel(result.data_mode)}. Syncing fresh ${result.data_mode} data...`;
+    domElements.dataModeStatus.textContent = `${dataModeLabel(result.data_mode)}. Syncing fresh ${result.data_mode} data...`;
     log("Data mode updated.", result);
     await runSync({ reason: "mode_switch", quiet: true });
   } catch (error) {
-    dataModeSelect.value = previousMode;
-    dataModeSelect.dataset.currentMode = previousMode;
-    environmentLabel.textContent = environmentText(previousMode);
-    dataModeStatus.textContent = `Data mode update failed: ${error.message}`;
+    domElements.dataModeSelect.value = previousMode;
+    domElements.dataModeSelect.dataset.currentMode = previousMode;
+    domElements.environmentLabel.textContent = environmentText(previousMode);
+    domElements.dataModeStatus.textContent = `Data mode update failed: ${error.message}`;
     log("Data mode update failed.", { error: error.message });
   } finally {
-    dataModeSelect.disabled = !(currentUser && (currentUser.role === "operator" || currentUser.role === "admin"));
+    domElements.dataModeSelect.disabled = !(currentUser && (currentUser.role === "operator" || currentUser.role === "admin"));
+    domElements.loadingOverlay.classList.remove("visible");
   }
 }
 
@@ -282,8 +568,8 @@ function renderAnomalies(items) {
     <article class="item-card">
       <div class="item-topline">
         <div>
-          <h3 class="item-title">${item.scope_key}</h3>
-          <p class="item-meta">Observed ${money(item.observed_cost)} vs expected ${money(item.expected_cost)} on ${item.usage_date}</p>
+          <h3 class="item-title">${sanitizeHtml(item.scope_key)}</h3>
+          <p class="item-meta">Observed ${sanitizeHtml(money(item.observed_cost))} vs expected ${sanitizeHtml(money(item.expected_cost))} on ${sanitizeHtml(item.usage_date)}</p>
         </div>
         <span class="badge badge-danger">Score ${(item.anomaly_score * 100).toFixed(0)}</span>
       </div>
@@ -305,6 +591,7 @@ function renderAnomalyGraph(status, anomalyItems = []) {
     anomalyGraphMeta.className = "graph-meta";
     anomalyGraphMeta.innerHTML = "";
     renderSyncTimeline(status.sync_markers);
+    hideChartTooltip();
     anomalyGraph.textContent = "No billing-history points yet. Cost Explorer is still warming up.";
     return;
   }
@@ -312,7 +599,22 @@ function renderAnomalyGraph(status, anomalyItems = []) {
   const width = 1280;
   const height = 460;
   const padding = 44;
-  const { mapped, line, area, maxCost } = buildLinePath(status.points, width, height, padding);
+  const currentWindow = status.points.slice(-Math.min(status.points.length, 31));
+  const previousWindow = status.points.length > currentWindow.length
+    ? status.points.slice(-Math.min(status.points.length, currentWindow.length * 2), -currentWindow.length)
+    : [];
+  const comparisonEnabled = chartCompareMode === "compare" && previousWindow.length >= 2;
+  const displayPoints = comparisonEnabled ? currentWindow : status.points;
+  const comparisonPoints = comparisonEnabled ? previousWindow : [];
+  const maxCost = Math.max(
+    ...displayPoints.map((point) => point.total_cost),
+    ...comparisonPoints.map((point) => point.total_cost),
+    0.01,
+  );
+  const { mapped, line, area } = buildLinePath(displayPoints, width, height, padding, maxCost);
+  const comparisonPath = comparisonEnabled
+    ? buildLinePath(comparisonPoints, width, height, padding, maxCost)
+    : null;
   const anomalyDates = new Set(anomalyItems.map((item) => item.usage_date));
   const latestPoint = mapped[mapped.length - 1];
   const highestPoint = mapped.reduce((best, point) => (point.total_cost > best.total_cost ? point : best), mapped[0]);
@@ -321,11 +623,10 @@ function renderAnomalyGraph(status, anomalyItems = []) {
     return index === 0 || index === mapped.length - 1 || index % interval === 0;
   })));
   const yTicks = 4;
-  const anomalyPointCount = mapped.filter((point) => anomalyDates.has(point.usage_date)).length;
   const latestVisiblePoints = mapped.slice(-Math.min(mapped.length, 10));
   const latestRangeMin = Math.min(...latestVisiblePoints.map((point) => point.total_cost));
   const latestRangeMax = Math.max(...latestVisiblePoints.map((point) => point.total_cost));
-  const chartMode = status.timeline_mode === "demo_preset" ? "scenario preview" : "live timeline";
+  const chartMode = comparisonEnabled ? "this month vs last month" : (status.timeline_mode === "demo_preset" ? "scenario preview" : "live timeline");
 
   anomalyGraphMeta.className = "graph-meta";
   anomalyGraphMeta.innerHTML = `
@@ -347,7 +648,7 @@ function renderAnomalyGraph(status, anomalyItems = []) {
     <div class="graph-stat">
       <span class="graph-stat-label">Timeline</span>
       <strong>${timelineModeLabel(status.timeline_mode)}</strong>
-      <span>${status.points[0].point_source.toUpperCase()} source</span>
+      <span>${sanitizeHtml(status.points[0].point_source.toUpperCase())} source</span>
     </div>
     <div class="graph-stat">
       <span class="graph-stat-label">Recent range</span>
@@ -361,8 +662,8 @@ function renderAnomalyGraph(status, anomalyItems = []) {
     <svg class="trend-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" aria-label="Billing trend">
       <defs>
         <linearGradient id="anomalyAreaFill" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stop-color="rgba(108, 99, 255, 0.28)"></stop>
-          <stop offset="100%" stop-color="rgba(108, 99, 255, 0.02)"></stop>
+          <stop offset="0%" stop-color="rgba(99, 102, 241, 0.16)"></stop>
+          <stop offset="100%" stop-color="rgba(99, 102, 241, 0.015)"></stop>
         </linearGradient>
       </defs>
       ${anomalyItems.map((item) => {
@@ -370,7 +671,7 @@ function renderAnomalyGraph(status, anomalyItems = []) {
         if (!point) {
           return "";
         }
-        return `<rect x="${Math.max(point.x - 9, padding)}" y="${padding}" width="18" height="${height - (padding * 2)}" class="trend-anomaly-band"></rect>`;
+        return `<rect x="${Math.max(point.x - 10, padding)}" y="${padding}" width="20" height="${height - (padding * 2)}" class="trend-anomaly-band"></rect>`;
       }).join("")}
       ${Array.from({ length: yTicks }, (_, index) => {
         const ratio = index / (yTicks - 1);
@@ -378,18 +679,16 @@ function renderAnomalyGraph(status, anomalyItems = []) {
         return `<line x1="${padding}" y1="${y}" x2="${width - padding}" y2="${y}" class="trend-grid"></line>`;
       }).join("")}
       <line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" class="trend-axis"></line>
+      ${comparisonEnabled && comparisonPath ? `<path d="${comparisonPath.line}" class="trend-line-compare"></path>` : ""}
       <path d="${area}" class="trend-area"></path>
       <path d="${line}" class="trend-line"></path>
       ${mapped.map((point) => `
-        <g class="trend-point-group">
-          ${anomalyDates.has(point.usage_date)
-            ? `<circle cx="${point.x}" cy="${point.y}" r="5.5" class="trend-point-anomaly"></circle>`
-            : ""}
-          ${point.usage_date === latestPoint.usage_date
-            ? `<circle cx="${point.x}" cy="${point.y}" r="4" class="trend-point-latest"></circle>`
-            : ""}
-          <title>${shortDate(point.usage_date)}: ${money(point.total_cost)} across ${point.record_count} records</title>
-        </g>
+        ${anomalyDates.has(point.usage_date)
+          ? `<circle cx="${point.x}" cy="${point.y}" r="6" class="trend-point-anomaly"></circle>`
+          : ""}
+        ${point.usage_date === latestPoint.usage_date
+          ? `<circle cx="${point.x}" cy="${point.y}" r="4.5" class="trend-point-latest"></circle>`
+          : ""}
       `).join("")}
       ${anomalyItems.map((item) => {
         const point = mapped.find((entry) => entry.usage_date === item.usage_date);
@@ -399,8 +698,8 @@ function renderAnomalyGraph(status, anomalyItems = []) {
         return `
           <g class="trend-callout">
             <line x1="${point.x}" y1="${point.y - 12}" x2="${point.x}" y2="${point.y - 34}" class="trend-callout-line"></line>
-            <rect x="${point.x - 36}" y="${point.y - 54}" width="72" height="22" rx="11" class="trend-callout-pill"></rect>
-            <text x="${point.x}" y="${point.y - 39}" text-anchor="middle" class="trend-callout-text">${compactMoney(item.observed_cost)}</text>
+            <rect x="${point.x - 38}" y="${point.y - 56}" width="76" height="24" rx="12" class="trend-callout-pill"></rect>
+            <text x="${point.x}" y="${point.y - 40}" text-anchor="middle" class="trend-callout-text">${compactMoney(item.observed_cost)}</text>
           </g>
         `;
       }).join("")}
@@ -412,8 +711,37 @@ function renderAnomalyGraph(status, anomalyItems = []) {
       ${tickIndexes.map((index) => `
         <text x="${mapped[index].x}" y="${height - 2}" text-anchor="middle" class="trend-tick">${shortDate(mapped[index].usage_date)}</text>
       `).join("")}
+      ${mapped.map((point) => `
+        <circle
+          class="trend-point-hotspot"
+          cx="${point.x}"
+          cy="${point.y}"
+          r="14"
+          data-date="${sanitizeHtml(shortDate(point.usage_date))}"
+          data-value="${sanitizeHtml(money(point.total_cost))}"
+          data-records="${sanitizeHtml(`${point.record_count} records`)}"
+        ></circle>
+      `).join("")}
     </svg>
   `;
+
+  anomalyGraph.querySelectorAll(".trend-point-hotspot").forEach((hotspot) => {
+    hotspot.addEventListener("pointermove", (event) => {
+      const target = event.currentTarget;
+      if (!(target instanceof SVGElement)) {
+        return;
+      }
+      showChartTooltip({
+        clientX: event.clientX,
+        clientY: event.clientY,
+        date: target.dataset.date || "",
+        value: target.dataset.value || "",
+        records: target.dataset.records || "",
+      });
+    });
+    hotspot.addEventListener("pointerleave", hideChartTooltip);
+  });
+
   renderSyncTimeline(status.sync_markers);
 }
 
@@ -427,8 +755,8 @@ function renderSyncTimeline(markers) {
   syncTimeline.innerHTML = markers.map((marker) => `
     <div class="sync-chip">
       <strong>${new Date(marker.started_at).toLocaleTimeString()}</strong>
-      <span>${marker.status} - ${marker.records_ingested} records</span>
-      <span>${marker.anomalies_detected} anomalies</span>
+      <span>${sanitizeHtml(marker.status)} - ${sanitizeHtml(String(marker.records_ingested))} records</span>
+      <span>${sanitizeHtml(String(marker.anomalies_detected))} anomalies</span>
     </div>
   `).join("");
 }
@@ -471,12 +799,12 @@ function renderRecommendations(items) {
     <article class="item-card">
       <div class="item-topline">
         <div>
-          <h3 class="item-title">${item.description}</h3>
-          <p class="item-meta">${providerLabel(item.provider)} - ${item.recommendation_type} - saves ${money(item.estimated_monthly_savings)}/mo</p>
+          <h3 class="item-title">${sanitizeHtml(item.description)}</h3>
+          <p class="item-meta">${sanitizeHtml(providerLabel(item.provider))} - ${sanitizeHtml(item.recommendation_type)} - saves ${sanitizeHtml(money(item.estimated_monthly_savings))}/mo</p>
         </div>
         <span class="badge ${recommendationState(item).badgeClass}">${recommendationState(item).label}</span>
       </div>
-      ${item.execution_result?.reason ? `<p class="item-meta">${item.execution_result.reason}</p>` : ""}
+      ${item.execution_result?.reason ? `<p class="item-meta">${sanitizeHtml(item.execution_result.reason)}</p>` : ""}
       ${recommendationButtons(item)}
     </article>
   `).join("");
@@ -491,9 +819,9 @@ function renderRecentActivity(entries) {
   recentActivity.className = "activity-stream";
   recentActivity.innerHTML = entries.map((entry) => `
     <article class="activity-item">
-      <h3 class="activity-title">${entry.action}</h3>
-      <div class="activity-copy">Target: ${entry.target_type || "system"} ${entry.target_id || ""}</div>
-      <div class="activity-time">${entry.actor_email || "system"} - ${entry.outcome} - ${new Date(entry.created_at).toLocaleString()}</div>
+      <h3 class="activity-title">${sanitizeHtml(entry.action)}</h3>
+      <div class="activity-copy">Target: ${sanitizeHtml(entry.target_type || "system")} ${sanitizeHtml(entry.target_id || "")}</div>
+      <div class="activity-time">${sanitizeHtml(entry.actor_email || "system")} - ${sanitizeHtml(entry.outcome)} - ${sanitizeHtml(new Date(entry.created_at).toLocaleString())}</div>
     </article>
   `).join("");
 }
@@ -503,8 +831,8 @@ function userCard(user) {
     <article class="item-card">
       <div class="item-topline">
         <div>
-          <h3 class="item-title">${user.full_name}</h3>
-          <p class="item-meta">${user.email} - ${user.role} - ${user.is_active ? "active" : "inactive"}</p>
+          <h3 class="item-title">${sanitizeHtml(user.full_name)}</h3>
+          <p class="item-meta">${sanitizeHtml(user.email)} - ${sanitizeHtml(user.role)} - ${user.is_active ? "active" : "inactive"}</p>
         </div>
       </div>
     </article>
@@ -516,11 +844,11 @@ function inviteCard(invite) {
     <article class="item-card">
       <div class="item-topline">
         <div>
-          <h3 class="item-title">${invite.full_name}</h3>
-          <p class="item-meta">${invite.email} - ${invite.role} - ${invite.status}</p>
+          <h3 class="item-title">${sanitizeHtml(invite.full_name)}</h3>
+          <p class="item-meta">${sanitizeHtml(invite.email)} - ${sanitizeHtml(invite.role)} - ${sanitizeHtml(invite.status)}</p>
         </div>
       </div>
-      <p class="item-meta">Invite link: <a href="${invite.invite_link}" target="_blank" rel="noreferrer">${invite.invite_link}</a></p>
+      <p class="item-meta">Invite link: <a href="${sanitizeHtml(invite.invite_link)}" target="_blank" rel="noreferrer">${sanitizeHtml(invite.invite_link)}</a></p>
     </article>
   `;
 }
@@ -530,12 +858,12 @@ function auditCard(entry) {
     <article class="item-card audit-row">
       <div class="item-topline audit-row-topline">
         <div>
-          <h3 class="item-title">${entry.action}</h3>
-          <p class="item-meta">${entry.actor_email || "system"} - ${entry.target_type || "system"} ${entry.target_id || ""}</p>
+          <h3 class="item-title">${sanitizeHtml(entry.action)}</h3>
+          <p class="item-meta">${sanitizeHtml(entry.actor_email || "system")} - ${sanitizeHtml(entry.target_type || "system")} ${sanitizeHtml(entry.target_id || "")}</p>
         </div>
         <div class="audit-row-meta">
-          <span class="badge ${entry.outcome === "success" ? "badge-teal" : "badge-warning"}">${entry.outcome}</span>
-          <span class="audit-row-time">${new Date(entry.created_at).toLocaleString()}</span>
+          <span class="badge ${entry.outcome === "success" ? "badge-teal" : "badge-warning"}">${sanitizeHtml(entry.outcome)}</span>
+          <span class="audit-row-time">${sanitizeHtml(new Date(entry.created_at).toLocaleString())}</span>
         </div>
       </div>
     </article>
@@ -613,7 +941,6 @@ async function loadUsers() {
     userAdminHint.textContent = "Admin tools hidden";
     userManagement.className = "admin-grid empty-state";
     userManagement.textContent = "User management is available to admins only.";
-    renderRecentActivity([]);
     return;
   }
 
@@ -632,9 +959,9 @@ async function loadUsers() {
       <section class="item-card">
         <h3 class="item-title">Invite User</h3>
         <form id="inviteForm" class="admin-form">
-          <label class="field field-dark"><span>Full Name</span><input id="inviteName" required></label>
-          <label class="field field-dark"><span>Email</span><input id="inviteEmail" type="email" required></label>
-          <label class="field field-dark">
+          <label class="field"><span>Full Name</span><input id="inviteName" required></label>
+          <label class="field"><span>Email</span><input id="inviteEmail" type="email" required></label>
+          <label class="field">
             <span>Role</span>
             <select id="inviteRole">
               <option value="viewer">viewer</option>
@@ -662,15 +989,15 @@ async function loadUsers() {
         <span>Scrollable log view</span>
       </div>
       <div class="audit-toolbar">
-        <label class="field field-dark">
+        <label class="field">
           <span>Search</span>
           <input id="auditQuery" placeholder="action, actor, target">
         </label>
-        <label class="field field-dark">
+        <label class="field">
           <span>Action</span>
           <input id="auditAction" placeholder="ops.sync">
         </label>
-        <label class="field field-dark">
+        <label class="field">
           <span>Outcome</span>
           <select id="auditOutcome">
             <option value="">all</option>
@@ -678,7 +1005,7 @@ async function loadUsers() {
             <option value="failure">failure</option>
           </select>
         </label>
-        <label class="field field-dark">
+        <label class="field">
           <span>Actor</span>
           <input id="auditActorEmail" placeholder="admin@example.com">
         </label>
@@ -686,7 +1013,7 @@ async function loadUsers() {
       <div class="audit-actions">
         <button id="auditApplyFilters" class="button button-secondary button-small" type="button">Apply Filters</button>
         <button id="auditResetFilters" class="button button-ghost button-small" type="button">Reset</button>
-        <label class="field field-dark field-inline">
+        <label class="field field-inline">
           <span>Purge Older Than Days</span>
           <input id="auditPurgeDays" type="number" min="0" placeholder="30">
         </label>
@@ -806,6 +1133,8 @@ async function loadUsers() {
 }
 
 async function loadDashboard() {
+  domElements.loadingOverlay.classList.add("visible");
+
   try {
     const [anomalyStatus, dashboardSummary, anomalyItems, recommendationItems] = await Promise.all([
       getJson("/anomaly-status"),
@@ -814,47 +1143,53 @@ async function loadDashboard() {
       getJson("/recommendations"),
     ]);
 
-    totalCost.textContent = money(dashboardSummary.total_cost);
-    totalCostLabel.textContent = "MTD Spend";
-    forecastCostLabel.textContent = forecastValueLabel(dashboardSummary);
-    forecastCostBadge.textContent = forecastBadgeLabel(dashboardSummary);
-    forecastCost.textContent = money(dashboardSummary.projected_end_of_month_cost);
-    anomalyCount.textContent = String(dashboardSummary.anomaly_count);
-    recommendationCount.textContent = String(dashboardSummary.recommendation_count);
-    potentialSavings.textContent = `${money(dashboardSummary.estimated_monthly_savings)}/mo`;
-    lastSync.textContent = forecastCopy(dashboardSummary);
-    costSource.textContent = billedSpendLabel(dashboardSummary);
-    costSourceBadge.textContent = costSourceBadgeLabel(dashboardSummary);
-    anomalySeverityBadge.textContent = anomalySeverityLabel(dashboardSummary.anomaly_count);
-    environmentLabel.textContent = environmentText(dashboardSummary.data_mode);
-    dataModeSelect.value = dashboardSummary.data_mode;
-    dataModeSelect.dataset.currentMode = dashboardSummary.data_mode;
-    dataModeStatus.textContent = dataModeDirty
+    domElements.totalCost.textContent = money(dashboardSummary.total_cost);
+    domElements.totalCostLabel.textContent = "MTD Spend";
+    domElements.forecastCostLabel.textContent = forecastValueLabel(dashboardSummary);
+    domElements.forecastCostBadge.textContent = forecastBadgeLabel(dashboardSummary);
+    domElements.forecastCost.textContent = money(dashboardSummary.projected_end_of_month_cost);
+    domElements.anomalyCount.textContent = String(dashboardSummary.anomaly_count);
+    domElements.recommendationCount.textContent = `${dashboardSummary.recommendation_count} candidates available`;
+    domElements.potentialSavings.textContent = `${money(dashboardSummary.estimated_monthly_savings)}/mo`;
+    domElements.lastSync.textContent = forecastCopy(dashboardSummary);
+    domElements.costSource.textContent = billedSpendLabel(dashboardSummary);
+    domElements.costSourceBadge.textContent = costSourceBadgeLabel(dashboardSummary);
+    domElements.anomalySeverityBadge.textContent = anomalySeverityLabel(dashboardSummary.anomaly_count);
+    domElements.environmentLabel.textContent = environmentText(dashboardSummary.data_mode);
+    domElements.dataModeSelect.value = dashboardSummary.data_mode;
+    domElements.dataModeSelect.dataset.currentMode = dashboardSummary.data_mode;
+    domElements.dataModeStatus.textContent = dataModeDirty
       ? `${dataModeLabel(dashboardSummary.data_mode)}. Refresh pending sync.`
       : dataModeLabel(dashboardSummary.data_mode);
 
     renderAnomalyGraph(anomalyStatus, anomalyItems);
+    renderAnomalySignal(anomalyStatus, anomalyItems);
+    renderAiInsight(dashboardSummary, anomalyItems, recommendationItems);
     renderAnomalies(anomalyItems);
     renderRecommendations(recommendationItems);
     await loadUsers();
     log("Dashboard refreshed.");
   } catch (error) {
-    syncResult.textContent = `Failed to load dashboard: ${error.message}`;
+    domElements.syncResult.textContent = `Failed to load dashboard: ${error.message}`;
     log("Dashboard load failed.", { error: error.message });
+  } finally {
+    domElements.loadingOverlay.classList.remove("visible");
   }
 }
 
 async function runSync(options = {}) {
   const { reason = "manual", quiet = false } = options;
-  syncButton.disabled = true;
-  refreshButton.disabled = true;
-  dataModeSelect.disabled = true;
-  syncResult.textContent = reason === "mode_switch"
-    ? `Syncing ${dataModeSelect.value} data...`
+  domElements.loadingOverlay.classList.add("visible");
+
+  domElements.syncButton.disabled = true;
+  domElements.refreshButton.disabled = true;
+  domElements.dataModeSelect.disabled = true;
+  domElements.syncResult.textContent = reason === "mode_switch"
+    ? `Syncing ${domElements.dataModeSelect.value} data...`
     : "Running live sync...";
   try {
     const result = await getJson("/sync", { method: "POST" });
-    syncResult.textContent = `Sync complete: ${result.ingested_cost_records} cost records, ${result.anomalies_detected} anomalies, ${result.recommendations_generated} recommendations.`;
+    domElements.syncResult.textContent = `Sync complete: ${result.ingested_cost_records} cost records, ${result.anomalies_detected} anomalies, ${result.recommendations_generated} recommendations.`;
     dataModeDirty = false;
     if (!quiet) {
       log("Live sync completed.", result);
@@ -863,13 +1198,14 @@ async function runSync(options = {}) {
     }
     await loadDashboard();
   } catch (error) {
-    syncResult.textContent = `Sync failed: ${error.message}`;
+    domElements.syncResult.textContent = `Sync failed: ${error.message}`;
     log(reason === "mode_switch" ? "Mode change sync failed." : "Live sync failed.", { error: error.message });
   } finally {
     const canOperate = currentUser && (currentUser.role === "operator" || currentUser.role === "admin");
-    syncButton.disabled = !canOperate;
-    refreshButton.disabled = false;
-    dataModeSelect.disabled = !canOperate;
+    domElements.syncButton.disabled = !canOperate;
+    domElements.refreshButton.disabled = false;
+    domElements.dataModeSelect.disabled = !canOperate;
+    domElements.loadingOverlay.classList.remove("visible");
   }
 }
 
@@ -896,8 +1232,8 @@ async function logout() {
   window.location.href = "/auth/login";
 }
 
-syncButton.addEventListener("click", runSync);
-refreshButton.addEventListener("click", async () => {
+domElements.syncButton.addEventListener("click", runSync);
+domElements.refreshButton.addEventListener("click", async () => {
   const canOperate = currentUser && (currentUser.role === "operator" || currentUser.role === "admin");
   if (canOperate) {
     await runSync({ reason: "refresh" });
@@ -905,10 +1241,10 @@ refreshButton.addEventListener("click", async () => {
   }
   await loadDashboard();
 });
-logoutButton.addEventListener("click", logout);
-dataModeSelect.addEventListener("change", updateDataMode);
+domElements.logoutButton.addEventListener("click", logout);
+domElements.dataModeSelect.addEventListener("change", updateDataMode);
 
-recommendationsContainer.addEventListener("click", (event) => {
+domElements.recommendationsContainer.addEventListener("click", (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) {
     return;
@@ -921,10 +1257,70 @@ recommendationsContainer.addEventListener("click", (event) => {
   runOptimization(id, action);
 });
 
+function scrollToTop(event) {
+  event.preventDefault();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+brandLink?.addEventListener("click", scrollToTop);
+
+navItems
+  .filter((item) => item.dataset.section === "dashboardSection")
+  .forEach((item) => item.addEventListener("click", scrollToTop));
+
+compareToggleButtons.forEach((button) => {
+  button.addEventListener("click", async () => {
+    chartCompareMode = button.dataset.compareMode || "month";
+    compareToggleButtons.forEach((entry) => entry.classList.toggle("is-active", entry === button));
+    await loadDashboard();
+  });
+});
+
+themeButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const nextTheme = button.dataset.themeValue;
+    if (!nextTheme) {
+      return;
+    }
+    setTheme(nextTheme);
+    setSettingsStatus(`Theme switched to ${nextTheme}. Save to persist this workspace preference.`);
+  });
+});
+
+profileButton?.addEventListener("click", () => {
+  toggleSettingsModal(true);
+});
+
+closeSettingsButton?.addEventListener("click", () => {
+  toggleSettingsModal(false);
+});
+
+settingsBackdrop?.addEventListener("click", () => {
+  toggleSettingsModal(false);
+});
+
+saveSettingsButton?.addEventListener("click", async () => {
+  await saveDashboardSettings();
+});
+
+clearGeminiKeyButton?.addEventListener("click", async () => {
+  geminiApiKeyInput.value = "";
+  await saveDashboardSettings({ clearGeminiKey: true });
+});
+
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && settingsModal && !settingsModal.hidden) {
+    toggleSettingsModal(false);
+  }
+});
+
 window.addEventListener("scroll", updateActiveNavigation, { passive: true });
+window.addEventListener("pointerdown", hideChartTooltip, { passive: true });
 
 (async function bootstrap() {
+  initializeTheme();
   await requireSession();
+  await loadSettings();
   await loadDataMode();
   await loadDashboard();
   updateActiveNavigation();

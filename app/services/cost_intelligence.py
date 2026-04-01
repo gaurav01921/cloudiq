@@ -16,6 +16,7 @@ from app.schemas.api import (
     OptimizationRequest,
     RecommendationResponse,
     SyncResponse,
+    SyncTimelinePoint,
 )
 from app.services.anomaly_detection import AnomalyDetectionService
 from app.services.alerts import AlertService
@@ -88,12 +89,12 @@ class CostIntelligenceService:
         latest_detection_run_at = self.db.execute(select(func.max(Anomaly.detected_at))).scalar_one()
         timeline_mode = self._timeline_mode()
         sync_markers = [
-            {
-                "started_at": run.started_at,
-                "status": run.status,
-                "records_ingested": int((run.details_json or {}).get("ingested_cost_records", 0)),
-                "anomalies_detected": int((run.details_json or {}).get("anomalies_detected", 0)),
-            }
+            SyncTimelinePoint(
+                started_at=run.started_at,
+                status=run.status,
+                records_ingested=int((run.details_json or {}).get("ingested_cost_records", 0)),
+                anomalies_detected=int((run.details_json or {}).get("anomalies_detected", 0)),
+            )
             for run in JobMonitorService(self.db).latest(limit=8)
             if run.job_name == "cloud-cost-sync"
         ]
@@ -131,19 +132,38 @@ class CostIntelligenceService:
         )
 
     def get_dashboard_summary(self) -> DashboardSummaryResponse:
-        actual_billed_cost = self._normalize_cost(
-            self.db.execute(select(func.coalesce(func.sum(CostRecord.cost_amount), 0.0))).scalar_one()
-        )
-        estimated_run_rate = self._normalize_cost(
-            self.db.execute(select(func.coalesce(func.sum(ResourceSnapshot.monthly_cost_estimate), 0.0))).scalar_one()
-        )
+        # Query 1: CostRecord aggregates for actual_billed_cost and last_cost_sync
+        cost_record_result = self.db.execute(
+            select(
+                func.coalesce(func.sum(CostRecord.cost_amount), 0.0).label('actual_billed_cost'),
+                func.max(CostRecord.created_at).label('last_cost_sync')
+            )
+        ).one()
+        actual_billed_cost = self._normalize_cost(cost_record_result.actual_billed_cost)
+        last_cost_sync = cost_record_result.last_cost_sync
+
+        # Query 2: ResourceSnapshot aggregates for estimated_run_rate and last_snapshot_sync
+        resource_snapshot_result = self.db.execute(
+            select(
+                func.coalesce(func.sum(ResourceSnapshot.monthly_cost_estimate), 0.0).label('estimated_run_rate'),
+                func.max(ResourceSnapshot.captured_at).label('last_snapshot_sync')
+            )
+        ).one()
+        estimated_run_rate = self._normalize_cost(resource_snapshot_result.estimated_run_rate)
+        last_snapshot_sync = resource_snapshot_result.last_snapshot_sync
+
+        # Query 3: CostRecord group by usage_date for signal days and latest usage date
         cost_rows = self.db.execute(
-            select(CostRecord.usage_date, func.coalesce(func.sum(CostRecord.cost_amount), 0.0))
+            select(
+                CostRecord.usage_date,
+                func.count(CostRecord.id).label('record_count'),
+                func.coalesce(func.sum(CostRecord.cost_amount), 0.0).label('total_cost')
+            )
             .group_by(CostRecord.usage_date)
             .order_by(CostRecord.usage_date.asc())
         ).all()
         signal_days = sum(
-            1 for _, amount in cost_rows if abs(self._normalize_cost(float(amount or 0.0))) >= self.COST_SIGNAL_EPSILON
+            1 for _, _, total_cost in cost_rows if abs(self._normalize_cost(float(total_cost or 0.0))) >= self.COST_SIGNAL_EPSILON
         )
         latest_usage_date = cost_rows[-1][0] if cost_rows else None
         projected_end_of_month_cost = estimated_run_rate
@@ -154,13 +174,17 @@ class CostIntelligenceService:
             observed_day = max(latest_usage_date.day, 1)
             projected_end_of_month_cost = self._normalize_cost((actual_billed_cost / observed_day) * days_in_month)
 
-        anomaly_count = self.db.execute(select(func.count(Anomaly.id))).scalar_one()
-        recommendation_count = self.db.execute(select(func.count(Recommendation.id))).scalar_one()
-        estimated_monthly_savings = self.db.execute(
-            select(func.coalesce(func.sum(Recommendation.estimated_monthly_savings), 0.0))
-        ).scalar_one()
-        last_cost_sync = self.db.execute(select(func.max(CostRecord.created_at))).scalar_one()
-        last_snapshot_sync = self.db.execute(select(func.max(ResourceSnapshot.captured_at))).scalar_one()
+        # Query 4: Combined aggregates for anomaly count, recommendation count, and estimated monthly savings
+        stmt = select(
+            select(func.count(Anomaly.id)).scalar_subquery().label('anomaly_count'),
+            select(func.count(Recommendation.id)).scalar_subquery().label('recommendation_count'),
+            select(func.coalesce(func.sum(Recommendation.estimated_monthly_savings), 0.0)).scalar_subquery().label('estimated_monthly_savings')
+        )
+        aggregates_result = self.db.execute(stmt).one()
+        anomaly_count = aggregates_result.anomaly_count
+        recommendation_count = aggregates_result.recommendation_count
+        estimated_monthly_savings = aggregates_result.estimated_monthly_savings
+
         last_sync_at = max([value for value in [last_cost_sync, last_snapshot_sync] if value is not None], default=None)
 
         if not cost_rows:
