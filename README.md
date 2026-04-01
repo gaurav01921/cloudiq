@@ -1,3 +1,8 @@
+# https://cloudiq.onrender.com
+
+
+email: admin@example.com
+password: ChangeMe123!
 # Cloud Cost Intelligence
 
 Cloud Cost Intelligence is a real cloud FinOps service scaffold that can ingest live AWS and GCP billing/resource telemetry, detect cost anomalies with machine learning, and execute selected optimizations through provider APIs.
